@@ -121,6 +121,18 @@ Toda a máquina de estado vive em `.sleepwell/` na raiz do repo onde rodou:
 
 `.sleepwell/` deve ir no `.gitignore` do projeto-cliente (não do plugin).
 
+## Roadmap
+
+Itens em progresso ou planejados:
+
+- **`--max-cost <USD>`** (em progresso) — abort gate por orçamento; campos `cost_so_far_usd` / `cost_budget_usd` já no schema v2.
+- **Telemetria de tokens** — `tokens_used.{input,output,cache_read,cache_creation}` acumulados por iter (já no schema v2; coleta a fazer).
+- **`/sleepwell-resume`** — retomar explicitamente um loop pausado/abortado a partir do último state válido.
+- **`/sleepwell-watch`** — modo TUI/dashboard para acompanhar iterações em tempo real.
+- **`/sleepwell-recap`** — gera resumo final do run (commits, padrões, custo, tokens) em formato legível.
+- **Modo `review-only`** — itera apenas com sugestões/diffs propostos, sem aplicar (útil pra revisão pré-merge).
+- **Hook `PreToolUse` de escopo** — bloqueia edição fora do worktree/branch durante o loop, reforçando isolamento.
+
 ## Inspirações
 
 - [yail259/overnight](https://github.com/yail259/overnight) — 4 modos (tidy/refine/build/radical), voice matching, meta-learning.

@@ -23,6 +23,8 @@ Skill central do plugin `sleepwell`. Executa **uma iteração** do loop autônom
 - Working tree limpo OU usuário aceitou stash automático (perguntar via AskUserQuestion na 1ª iter).
 - Branch atual ≠ main/master/develop (se for, criar branch sleepwell antes de tocar em qualquer arquivo).
 
+> **Fluxo canônico:** `lib/ritual.md` §1–§9 documenta princípios, bootstrap, iteração, finalize, helpers e migration. Esta SKILL implementa aquele fluxo — abaixo apenas o que é específico de runtime/execução. Mudanças de comportamento começam no `ritual.md`.
+
 ## Anatomia de uma iteração
 
 ```

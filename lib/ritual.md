@@ -1,5 +1,7 @@
 # sleepwell — ritual completo
 
+> **Fonte autoritativa.** Este documento é a referência canônica do fluxo sleepwell. Skills (`sleepwell-loop`, `sleepwell-meta`) e comandos (`/sleepwell*`) devem **referenciar** este arquivo (`Ver lib/ritual.md §<seção>`) em vez de duplicar a lógica. Mudanças no fluxo começam aqui.
+
 Documentação canônica do ritual de iteração. A skill `sleepwell-loop` implementa este fluxo. Esta página existe para humanos lerem.
 
 ## 1. Princípios
@@ -152,7 +154,19 @@ sleepwell_base_branch() {
 
 Usar em qualquer lugar que precise de `merge-base`, range `..`, exclusão `^<base>`. Lugares já adaptados: `skills/sleepwell-loop` (diff acumulado), `commands/sleepwell-status`, `commands/sleepwell-diff`, `skills/sleepwell-meta`.
 
-### 7.2 Guard de upstream em undo
+### 7.2 Escrita atômica de state
+
+`state.json` é fonte da verdade — corrupção quebra retomadas. Sempre escreva via tmpfile + rename (atômico no mesmo filesystem):
+
+```bash
+tmp=$(mktemp .sleepwell/state.json.XXXXXX)
+echo "$payload" > "$tmp"
+mv "$tmp" .sleepwell/state.json
+```
+
+Mesmo padrão para `notes.md` em reescritas (apend simples pode usar `>>`).
+
+### 7.3 Guard de upstream em undo
 
 Antes de checar `git log @{u}..` (detectar commits já pushados), verifique se há upstream configurado. Sem o guard, branches locais sem tracking remoto fazem o `git log @{u}..` falhar e bloqueiam o undo erroneamente.
 

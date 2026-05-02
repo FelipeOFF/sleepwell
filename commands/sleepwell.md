@@ -7,6 +7,8 @@ argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--m
 
 Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint — ela vai bootstrapar o estado, criar a branch isolada, extrair voice profile, ler calibration, e rodar a 1ª iteração.
 
+> **Fluxo canônico:** ver `lib/ritual.md` §2 (bootstrap) e §3 (iteração). Aqui ficam apenas args do CLI e dispatching pra skill — sem duplicar passos.
+
 ## Argumentos parseados
 
 ```
