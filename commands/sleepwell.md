@@ -1,6 +1,6 @@
 ---
 description: Inicia (ou retoma) o loop autônomo sleepwell. Combina disciplina gnhf (branch isolada, commit atômico, rollback em fail) com adaptação overnight (voice matching, modos, meta-learning). Roda dentro da sessão CC com cache quente entre iterações.
-argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>]
+argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>] [--no-pr] [--draft-pr]
 ---
 
 # /sleepwell
@@ -23,7 +23,13 @@ Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint 
 --no-worktree                         opcional (default: usa worktree)
 --no-voice                            opcional
 --no-meta                             opcional
+--no-pr                               opcional (default: cria PR ao final do run)
+--draft-pr                            opcional (cria PR como draft)
 ```
+
+> **PR-only flow:** ao final de um run com `status == done`, o loop invoca
+> `/sleepwell-pr` automaticamente (a menos que `--no-pr` tenha sido passado).
+> Auto-merge fica desabilitado por padrão. Veja `commands/sleepwell-pr.md`.
 
 Todas as flags são **persistidas no `state.json`** no bootstrap (`worktree_enabled`,
 `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`,

@@ -149,6 +149,31 @@ When a phase is active, the loop injects its `PLAN.md` and recent
 `EXECUTION.md` into each iteration prompt and evaluates acceptance
 criteria after every iter. See [`lib/ritual.md` §9](lib/ritual.md).
 
+## PR-only flow
+
+Sleepwell runs always work on a disposable branch named
+`sleepwell/auto/<run-id>` (where `run-id = <unix-epoch>-<rand4hex>`). The
+human-readable slug derived from the intent is preserved separately in
+`state.slug`. This guarantees branch uniqueness across parallel runs and
+keeps the branch namespace tidy.
+
+When a run finishes (`status == done`), the loop invokes
+`/sleepwell-pr` automatically and persists the resulting PR URL into
+`state.pr_url`. The PR body includes intent, mode, iteration counts,
+cost in USD, latest evaluator rating, and the commit list.
+
+```bash
+/sleepwell "<intent>"             # default: cria PR ao final
+/sleepwell "<intent>" --no-pr     # roda mas não cria PR
+/sleepwell "<intent>" --draft-pr  # cria PR como draft
+```
+
+Auto-merge is **disabled by default**. To enable conditional auto-merge,
+manually apply the label `sleepwell-auto-merge` on the PR — a
+server-side GitHub Action (not shipped with this plugin) is expected to
+consume the label and run `gh pr merge --auto` once CI passes. The
+plugin only documents the convention.
+
 ## Compatibility
 
 - Claude Code (primary target).

@@ -84,26 +84,31 @@ Skill central do plugin `sleepwell`. Executa **uma iteração** do loop autônom
 
 Detecte: `.sleepwell/state.json` não existe E há `--intent "<text>"` no input.
 
-1. Parse args do `/sleepwell`: intent (ou `--intent-file <path>`), mode (default `refine`), max-iter (default 20), `--max-cost <USD>` (opcional), stop-when, dry-run, worktree (default true), no-voice, no-meta. Todas as flags são **gravadas no `state.json`** (campos `worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`) para que retomadas via `ScheduleWakeup` preservem o setup.
-2. Slug do intent → kebab-case curto, ex: `refactor-auth-middleware`.
-3. **Worktree:**
-   - Se `worktree=true`: cria `git worktree add ../<repo>-wt/sleepwell-<slug> -b sleepwell/<slug>` (vendored stub em `skills/vendor/git-worktrees`).
-   - Senão: `git checkout -b sleepwell/<slug>` (abortar se branch existe).
-4. **Voice profile** (se `no-voice=false`):
+1. Parse args do `/sleepwell`: intent (ou `--intent-file <path>`), mode (default `refine`), max-iter (default 20), `--max-cost <USD>` (opcional), stop-when, dry-run, worktree (default true), no-voice, no-meta, `--no-pr` (default false: cria PR no finalize), `--draft-pr` (cria PR como draft). Todas as flags são **gravadas no `state.json`** (campos `worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`, `pr_mode` ∈ {`auto`,`none`,`draft`}) para que retomadas via `ScheduleWakeup` preservem o setup.
+2. Slug do intent → kebab-case curto, ex: `refactor-auth-middleware`. Persistido em `state.slug` (campo separado).
+3. **Run-id:** gere identificador único `<unix-epoch>-<rand4hex>` (ex: `1714678920-a3f2`). Usado para nomear a branch, evitando colisão com slugs duplicados e garantindo PR-friendly naming.
+4. **Worktree:**
+   - Branch sempre nomeada `sleepwell/auto/<run-id>` (não mais `sleepwell/<slug>`).
+   - Se `worktree=true`: cria `git worktree add ../<repo>-wt/sleepwell-auto-<run-id> -b sleepwell/auto/<run-id>` (vendored stub em `skills/vendor/git-worktrees`).
+   - Senão: `git checkout -b sleepwell/auto/<run-id>` (abortar se branch existe — improvável dado o rand).
+5. **Voice profile** (se `no-voice=false`):
    - Invoque skill `sleepwell-profile`.
    - Resultado em `.sleepwell/voice-profile.md`.
-5. **Meta-calibration** (se `no-meta=false`):
+6. **Meta-calibration** (se `no-meta=false`):
    - Invoque skill `sleepwell-meta`.
    - Resultado em `.sleepwell/calibration.md`.
-6. Cria `.sleepwell/state.json` (schema em `lib/state-schema.json`, version `2`):
+7. Cria `.sleepwell/state.json` (schema em `lib/state-schema.json`, version `3`):
    ```json
    {
-     "version": 2,
+     "version": 3,
      "intent": "<frase do user>",
      "intent_file": null,
      "slug": "<kebab-case>",
+     "run_id": "<unix-epoch>-<rand4hex>",
      "mode": "refine",
-     "branch": "sleepwell/<slug>",
+     "branch": "sleepwell/auto/<run-id>",
+     "pr_url": null,
+     "pr_mode": "auto",
      "worktree_enabled": true,
      "worktree_path": "<abs path ou null>",
      "iteration": 0,
@@ -133,8 +138,17 @@ Detecte: `.sleepwell/state.json` não existe E há `--intent "<text>"` no input.
    ```
    - `verify_cmds.lint = "auto"` → detecta no momento (npm/pnpm/bun script `lint`, `ruff`, `eslint`, `golangci-lint`, etc).
    - `cost_budget_usd` (de `--max-cost <USD>`) gera abort gate (ver `lib/ritual.md §8.1`).
-7. Cria `.sleepwell/notes.md` com header.
-8. Adiciona `.sleepwell/` ao `.gitignore` se ainda não estiver.
+8. Cria `.sleepwell/notes.md` com header.
+9. Adiciona `.sleepwell/` ao `.gitignore` se ainda não estiver.
+10. **Lockfile de concorrência (`.sleepwell/ci-lock`):** ver `lib/ritual.md §10`.
+    Antes de criar, checa se o arquivo existe:
+    - Se existe: lê pid; em unix `kill -0 $pid 2>/dev/null` (em windows
+      `tasklist /FI "PID eq $pid"`). Se vivo → recusa com mensagem
+      `sleepwell-loop: lock owned by pid <X> @ <hostname> (started_at <ISO>)`.
+      Se pid morto → considera lock stale, sobrescreve.
+    - Se ausente: cria.
+    Conteúdo: `{ "pid": <int>, "started_at": "<ISO>", "hostname": "<host>" }`
+    via tmpfile + rename. Lock removido no finalize (success ou abort).
 
 Pula direto para passo 2 (sem checar abort).
 
@@ -326,7 +340,9 @@ Quando aborta ou conclui:
 
 1. Atualiza `state.status` para `"done"|"aborted"|"stopped"`.
 2. Escreve resumo final em `notes.md`.
-3. Mostra ao usuário:
+2.5. Remove `.sleepwell/ci-lock` (apenas se o pid no lock é o pid atual).
+3. **PR-only flow:** se `state.pr_mode != "none"` E `state.status == "done"` E há ≥1 commit na branch → invoque `/sleepwell-pr` para criar PR. Persiste URL em `state.pr_url`. Em modo `"draft"`, cria com `--draft`. Auto-merge desabilitado por default; aplicar label `sleepwell-auto-merge` manualmente liga merge condicional via Action server-side (referência apenas — não implementado neste plugin).
+4. Mostra ao usuário:
    ```
    sleepwell finalizado
    ━━━━━━━━━━━━━━━━━━━━
