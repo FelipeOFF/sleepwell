@@ -41,8 +41,8 @@
       "description": "Slug kebab-case derivado do intent."
     },
     "mode": {
-      "enum": ["tidy", "refine", "build", "radical"],
-      "description": "Modo de operação."
+      "enum": ["tidy", "refine", "build", "radical", "wave"],
+      "description": "Modo de operação. wave é experimental (3 sub-agents por iter)."
     },
     "branch": {
       "type": "string",
