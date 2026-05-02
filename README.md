@@ -187,6 +187,11 @@ plugin only documents the convention.
 
 Inspired by prior overnight-agent work in the community: branch-isolated loops with atomic commits, mode-based prompting, and voice/meta adaptation.
 
+## Architecture Decisions
+
+See [`docs/adr/`](docs/adr/) for architecture decision records (ADRs).
+Start with [ADR-001: PR-only flow e CI awareness](docs/adr/001-pr-only-ci-awareness.md).
+
 ## Contributing
 
 Issues and pull requests welcome. The loop, schema, and ritual are documented in [`lib/ritual.md`](lib/ritual.md) (the authoritative source). Run `scripts/check-skill-deps.sh` to audit external skill references before opening a PR.
