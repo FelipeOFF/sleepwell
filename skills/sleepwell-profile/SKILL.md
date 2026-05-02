@@ -81,15 +81,35 @@ _Extraído em <ISO date> de <N> mensagens recentes._
 
 ## Implementação prática
 
-Comando shell sugerido (Bash) para coletar mensagens:
+Comando shell sugerido (Bash) para coletar mensagens. O parser é
+**tolerante a falhas**: linhas malformadas (JSON quebrado, truncado) são
+puladas silenciosamente em vez de derrubar o pipeline; e suporta
+`content` tanto como string (formato antigo) quanto como array de blocks
+`[{type:"text", text:"..."}, ...]` (formato atual do CC). Filtra tanto
+`type=="user"` quanto `role=="user"` porque diferentes versões do CC
+emitem em formatos distintos.
 
 ```bash
 PROJ_SLUG=$(pwd | sed 's|/|-|g')
 JSONL_DIR=~/.claude/projects/${PROJ_SLUG}
 
 ls -t "${JSONL_DIR}"/*.jsonl 2>/dev/null | head -10 | \
-  xargs cat 2>/dev/null | \
-  jq -r 'select(.type=="user" or .role=="user") | .content // .message // empty' 2>/dev/null | \
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    printf '%s\n' "$line" | jq -r '
+      try (
+        select(.type=="user" or .role=="user")
+        | (.message.content // .content // .message // empty)
+        | if   type == "string" then .
+          elif type == "array"  then
+            (map(select(.type=="text") | .text) | join(" "))
+          else empty end
+      ) catch empty
+    ' 2>/dev/null
+  done < "$f"
+done | \
   grep -v '^/' | \
   grep -v '^<system-reminder>' | \
   awk 'length > 20' | \
@@ -97,6 +117,43 @@ ls -t "${JSONL_DIR}"/*.jsonl 2>/dev/null | head -10 | \
 ```
 
 Depois sumarize com seu próprio raciocínio (não chame outro modelo).
+
+### Teste manual
+
+Para validar o pipeline em qualquer máquina:
+
+```bash
+# 1. Cria um JSONL sintético com mistura de formatos válidos e quebrados.
+mkdir -p /tmp/sw-voice-test
+cat > /tmp/sw-voice-test/sample.jsonl <<'EOF'
+{"type":"user","message":{"content":"primeira mensagem em formato string longa o suficiente"}}
+{"type":"user","message":{"content":[{"type":"text","text":"segunda mensagem em formato array de blocks com texto longo"},{"type":"tool_use","id":"x"}]}}
+linha quebrada que não é JSON
+{"type":"assistant","message":{"content":"deve ser ignorada"}}
+{"role":"user","content":"terceira via role=user também válida e suficientemente longa"}
+{"type":"user"
+EOF
+
+# 2. Roda o pipeline apontando para o sample.
+cat /tmp/sw-voice-test/sample.jsonl | \
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  printf '%s\n' "$line" | jq -r '
+    try (
+      select(.type=="user" or .role=="user")
+      | (.message.content // .content // .message // empty)
+      | if   type == "string" then .
+        elif type == "array"  then
+          (map(select(.type=="text") | .text) | join(" "))
+        else empty end
+    ) catch empty
+  ' 2>/dev/null
+done | awk 'length > 20'
+```
+
+Esperado: as 3 mensagens válidas (string, array, role=user) saem; a
+linha não-JSON e o JSON truncado são silenciosamente pulados; a
+mensagem do assistant é filtrada.
 
 ## Quando re-extrair
 
