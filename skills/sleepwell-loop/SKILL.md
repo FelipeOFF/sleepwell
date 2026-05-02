@@ -341,6 +341,13 @@ Quando aborta ou conclui:
 1. Atualiza `state.status` para `"done"|"aborted"|"stopped"`.
 2. Escreve resumo final em `notes.md`.
 2.5. Remove `.sleepwell/ci-lock` (apenas se o pid no lock é o pid atual).
+2.7. **Gate ci-mirror (paridade local/CI):** se `sleepwell-helper` está
+    disponível, antes do push/PR roda
+    `sleepwell-helper ci-mirror | bash` (cwd = worktree). Se exit `!= 0`,
+    o push e a criação do PR são **bloqueados**: status muda para
+    `aborted`, `abort_reason="ci_mirror_failed"`, log no notes com a
+    saída do bash. Se o helper não está no PATH, o gate é pulado com
+    warning em notes (degradação grácil). Ver issue #37.
 3. **PR-only flow:** se `state.pr_mode != "none"` E `state.status == "done"` E há ≥1 commit na branch → invoque `/sleepwell-pr` para criar PR. Persiste URL em `state.pr_url`. Em modo `"draft"`, cria com `--draft`. Auto-merge desabilitado por default; aplicar label `sleepwell-auto-merge` manualmente liga merge condicional via Action server-side (referência apenas — não implementado neste plugin).
 4. Mostra ao usuário:
    ```

@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 mod cmd;
 
 use cmd::{
-    calibrate::CalibrateArgs, cost::CostArgs, evaluate::EvaluateArgs, hash::HashArgs,
-    parse_jsonl::ParseJsonlArgs, watch::WatchArgs,
+    calibrate::CalibrateArgs, ci_mirror::CiMirrorArgs, cost::CostArgs, evaluate::EvaluateArgs,
+    hash::HashArgs, parse_jsonl::ParseJsonlArgs, watch::WatchArgs,
 };
 
 #[derive(Debug, Parser)]
@@ -33,6 +33,8 @@ enum Command {
     Evaluate(EvaluateArgs),
     /// Calibrate plugin parameters from historical runs.
     Calibrate(CalibrateArgs),
+    /// Render `.github/workflows/*.yml` as a best-effort local bash script.
+    CiMirror(CiMirrorArgs),
 }
 
 fn main() -> Result<()> {
@@ -44,5 +46,6 @@ fn main() -> Result<()> {
         Command::Watch(a) => cmd::watch::run(a),
         Command::Evaluate(a) => cmd::evaluate::run(a),
         Command::Calibrate(a) => cmd::calibrate::run(a),
+        Command::CiMirror(a) => cmd::ci_mirror::run(a),
     }
 }
