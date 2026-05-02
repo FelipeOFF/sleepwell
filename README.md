@@ -1,160 +1,151 @@
 # sleepwell
 
-Loop autônomo nativo do Claude Code. Junta o melhor do **gnhf** (disciplina: branch isolada, commit atômico por iteração, rollback automático em falha) com o melhor do **overnight** (adaptação ao usuário: voice matching, 4 modos de operação, meta-learning entre runs).
+Autonomous overnight loop for Claude Code. Disciplined iteration (isolated branch, atomic commit per iteration, automatic rollback on failure) combined with adaptive behavior (4 operating modes, optional voice matching, cross-run meta-learning).
 
-Diferente do gnhf/overnight que rodam fora via `claude -p`, o sleepwell vive **dentro** da sessão Claude Code:
+Unlike external `claude -p` wrappers, sleepwell runs **inside** an active Claude Code session — keeping the prompt cache hot, MCP servers alive, and skills composable across iterations.
 
-- **Cache de prompt quente** entre iterações (TTL 5min) — sem cold start a cada loop.
-- **MCPs continuam vivos** durante o loop (gitnexus, GSD, context7, memory).
-- **Skills compõem** — pode invocar `superpowers:tdd`, `gsd-execute-phase`, etc.
-- **Memory persistente** (`MEMORY.md`, feedbacks salvos) disponível dentro da iteração.
+Language- and stack-agnostic: works with any project where lint, type-check, and tests can be invoked from the shell. Verify commands are auto-detected (Node, Python, Go, Rust, Ruby, .NET, Java, etc.) or set explicitly.
 
-## Instalação
+## Highlights
 
-> **Standalone por design.** O fluxo core (bootstrap, iter, verify, commit,
-> rollback, ScheduleWakeup) funciona sem nenhuma skill externa instalada.
-> Skills opcionais (`superpowers:test-driven-development`, `obsidian-markdown`)
-> só melhoram a experiência em modos específicos. Veja o mapa completo em
-> [`docs/SKILLS.md`](docs/SKILLS.md) e rode `scripts/check-skill-deps.sh` para
-> auditar dependências.
+- **Hot prompt cache** between iterations (5-min TTL) — no cold start per loop.
+- **Live MCP servers** persist across iterations.
+- **Composable** with any Claude Code skill or plugin you have installed.
+- **Standalone by design** — the core ritual works without external skills. See [`docs/SKILLS.md`](docs/SKILLS.md).
+- **Safety first** — isolated branch, no `--no-verify`, no force-push, scope-guard hook blocks edits outside the worktree, push-guard hook blocks accidental `git push` while a loop is running.
 
-Como o repo já está em `~/Projects/my-claude-code-skills`, você pode:
+## Install
 
-**Opção A — symlink global:**
-```bash
-ln -s ~/Projects/my-claude-code-skills/sleepwell ~/.claude/plugins/sleepwell
-```
-
-**Opção B — copiar:**
-```bash
-cp -r ~/Projects/my-claude-code-skills/sleepwell ~/.claude/plugins/
-```
-
-**Opção C — usar via marketplace** (se publicar):
 ```bash
 /plugin install sleepwell@FelipeOFF/sleepwell
 ```
 
-Reinicie o Claude Code (`/restart`). Os comandos `/sleepwell*` aparecem.
+Or clone and symlink into your Claude Code plugins directory:
 
-## Uso rápido
+```bash
+git clone https://github.com/FelipeOFF/sleepwell.git
+ln -s "$(pwd)/sleepwell" ~/.claude/plugins/sleepwell
+```
+
+Restart Claude Code. The `/sleepwell*` commands appear.
+
+## Quick start
 
 ```
-/sleepwell "refatora o módulo de auth pra usar o novo middleware" --mode refine --max-iter 15
+/sleepwell "extract auth middleware into its own module" --mode refine --max-iter 15
 ```
 
-Outros comandos:
-
-| Comando | O que faz |
+| Command | Purpose |
 |---|---|
-| `/sleepwell "<intent>" [opts]` | Inicia o loop |
-| `/sleepwell-status` | Estado atual (iteração, branch, modo, últimos commits) |
-| `/sleepwell-diff` | Diff acumulado da branch sleepwell vs base |
-| `/sleepwell-undo` | Reverte a última iteração com sucesso (`git reset --hard HEAD~1`) |
-| `/sleepwell-stop` | Para o loop (cancela próximos `ScheduleWakeup`) |
+| `/sleepwell "<intent>" [opts]` | Start the loop |
+| `/sleepwell-status` | Current iteration, branch, mode, recent commits, cost |
+| `/sleepwell-diff` | Accumulated diff vs base branch |
+| `/sleepwell-resume` | Resume a paused, stopped, or crashed loop |
+| `/sleepwell-watch` | Live TUI of loop progress |
+| `/sleepwell-recap` | Post-run narrative summary |
+| `/sleepwell-undo` | Revert the last successful iteration |
+| `/sleepwell-stop` | Cancel pending wakeups |
 
-## Modos
+## Modes
 
-| Modo | Quando usar | Comportamento |
+| Mode | When to use | Behavior |
 |---|---|---|
-| `tidy` | Limpeza, organização, deps | Mudanças mecânicas, sem alterar comportamento |
-| `refine` (default) | Melhorias contínuas, refactor incremental | Refatora preservando testes verdes |
-| `build` | Construir feature nova end-to-end | TDD-first, rampa até feature completa |
-| `radical` | Reescrever subsistemas | Permite quebrar e reconstruir, mais arriscado |
+| `tidy` | Cleanup, dependencies, formatting | Mechanical changes, no behavior change |
+| `refine` (default) | Incremental improvement, refactor | Refactor while keeping tests green |
+| `build` | New feature end-to-end | Tests-first, ramp to working feature |
+| `radical` | Subsystem rewrites | Allows breaking and rebuilding; higher risk |
+| `wave` | Multi-agent collaboration (experimental) | Propose → critique → consolidate per iteration |
 
-## Opções
+## Options
 
 ```
 /sleepwell "<intent>"
-  --mode tidy|refine|build|radical    (default: refine)
-  --max-iter <N>                       (default: 20)
-  --stop-when "<condição NL>"          (avalia ao fim de cada iter)
-  --no-worktree                        (default: usa worktree)
-  --dry-run                            (não commita; mostra diff)
-  --no-voice                           (pula voice profile)
-  --no-meta                            (pula meta-learning)
+  --mode tidy|refine|build|radical|wave   (default: refine)
+  --max-iter <N>                          (default: 20)
+  --max-cost <USD>                        (abort when total cost exceeds budget)
+  --max-cost-per-iter <USD>               (per-iteration cap)
+  --stop-when "<NL condition>"            (evaluated after each iter)
+  --intent-file <path>                    (long intent from file)
+  --no-worktree                           (default: uses git worktree)
+  --dry-run                               (no commits; show diff)
+  --no-voice                              (skip voice profile extraction)
+  --no-meta                               (skip meta-learning calibration)
 ```
 
-## Anatomia de uma iteração
+## Iteration anatomy
 
-1. **Carrega state** — `.sleepwell/state.json` (counter, branch, modo, intent, profile, calibration).
-2. **Checa abort** — max-iter, max-cost, stop-when, falhas consecutivas ≥3.
-3. **Bootstrap** (só na 1ª iter):
-   - Cria branch `sleepwell/<slug>` (com worktree se ativado).
-   - Extrai voice profile dos JSONLs do projeto se cache >7 dias.
-   - Lê meta-calibration do run anterior (`git log` da última branch sleepwell).
-4. **Monta prompt da iteração** — intent + modo + voice + notes.md + last_diff + calibration.
-5. **Executa** — Claude raciocina e edita arquivos.
-6. **Verifica** — lint + type-check + testes (configuráveis no `.sleepwell/config.json` se existir).
-7. **Branch de decisão**:
-   - **Pass:** `git add -A && git commit` com mensagem conventional, `notes.md` recebe summary.
-   - **Fail:** `git reset --hard HEAD`, incrementa contador de falhas, backoff exponencial.
-8. **Atualiza state**.
-9. **Decide próxima iter:**
-   - Done (stop-when OK ou max-iter): finaliza, mostra resumo.
-   - Continue: `ScheduleWakeup(delay=60-270s)` mantém cache quente; relança a si mesmo.
+1. **Load state** from `.sleepwell/state.json`.
+2. **Abort checks** — max-iter, max-cost, stop-when, ≥3 consecutive failures.
+3. **Bootstrap** (first iteration only) — create `sleepwell/<slug>` branch, optional worktree, voice profile, prior calibration.
+4. **Compose prompt** — intent + mode + voice + recent notes + last diff + calibration.
+5. **Execute** — Claude reasons and edits files.
+6. **Verify** — lint + type-check + tests (auto-detected or set in `verify_cmds`).
+7. **Decision** — Pass: atomic commit + log. Fail: `git reset --hard HEAD && git clean -fd`, increment failure counter, exponential backoff.
+8. **Telemetry** — accumulate token usage and cost.
+9. **Schedule next** — `ScheduleWakeup(60-270s)` keeps the cache warm and relaunches the loop.
 
-## Voice matching
-
-Lê `~/.claude/projects/<proj>/*.jsonl`, extrai mensagens recentes do role `user`, sumariza em ~500 tokens (tom, vocabulário, idioma, padrões de pedido). Cacheia em `.sleepwell/voice-profile.md`. Re-extrai se >7 dias.
-
-## Meta-learning
-
-Antes da próxima run, compara:
-- `git log --oneline` da branch sleepwell anterior
-- `git log main --since=<run anterior>`
-
-Mede quais commits foram cherry-picked/merged vs descartados. Persiste em `.sleepwell/calibration.md` insights tipo: *"usuário mantém refactors de naming, descarta abstrações novas"*. Injeta no prompt da próxima iter.
-
-## Segurança
-
-- **Nunca** roda em `main`/`master`/`develop` — sempre cria branch isolada.
-- **Nunca** `--no-verify`, **nunca** `--force-push`.
-- Falhas consecutivas ≥3 → abort automático.
-- Worktree default isola mudanças do working tree principal.
-- `--dry-run` permite avaliar antes de commitar.
-
-## Estado
-
-Toda a máquina de estado vive em `.sleepwell/` na raiz do repo onde rodou:
+## State
 
 ```
 .sleepwell/
-├── state.json          # counter, branch, mode, intent, status
-├── notes.md            # log appendável de cada iteração
-├── voice-profile.md    # cache do voice matching
-└── calibration.md      # insights do meta-learning
+├── state.json          # iteration, branch, mode, status, cost, tokens
+├── notes.md            # appended log per iteration
+├── voice-profile.md    # cached voice matching summary
+├── calibration.md      # cross-run meta-learning insights
+└── archive/            # previous runs
 ```
 
-`.sleepwell/` deve ir no `.gitignore` do projeto-cliente (não do plugin).
+Add `.sleepwell/` to your project `.gitignore`.
 
-## Roadmap
+## Verify commands
 
-Itens em progresso ou planejados:
+Set per project (in `state.json` or via flags). Each accepts a shell command or the literal `"auto"`:
 
-- **`--max-cost <USD>`** (em progresso) — abort gate por orçamento; campos `cost_so_far_usd` / `cost_budget_usd` já no schema v2.
-- **Telemetria de tokens** — `tokens_used.{input,output,cache_read,cache_creation}` acumulados por iter (já no schema v2; coleta a fazer).
-- **`/sleepwell-resume`** — retomar explicitamente um loop pausado/abortado a partir do último state válido.
-- **`/sleepwell-watch`** — modo TUI/dashboard para acompanhar iterações em tempo real.
-- **`/sleepwell-recap`** — gera resumo final do run (commits, padrões, custo, tokens) em formato legível.
-- **Modo `review-only`** — itera apenas com sugestões/diffs propostos, sem aplicar (útil pra revisão pré-merge).
-- **Hook `PreToolUse` de escopo** — bloqueia edição fora do worktree/branch durante o loop, reforçando isolamento.
+```json
+{
+  "verify_cmds": {
+    "lint": "auto",
+    "typecheck": "auto",
+    "test": "npm test"
+  }
+}
+```
+
+`auto` detects common toolchains: `eslint`, `ruff`, `golangci-lint`, `cargo clippy`, `rubocop`, `dotnet format`, etc.
+
+## Cost telemetry
+
+Detects the active runtime (Claude Code or Codex CLI), parses session JSONL, accumulates `input/output/cache_read/cache_creation` tokens per iteration, derives USD cost from a price table, and enforces the `--max-cost` budget. See [`skills/sleepwell-telemetry/SKILL.md`](skills/sleepwell-telemetry/SKILL.md).
+
+## Safety
+
+- Never runs on `main`/`master`/`develop` — always isolates in a `sleepwell/<slug>` branch.
+- Never uses `--no-verify` or `--force-push`.
+- ≥3 consecutive failures → automatic abort.
+- `PreToolUse` hooks block `git push` and out-of-worktree edits during an active loop.
+- `--dry-run` previews without committing.
 
 ## Troubleshooting
 
-Cenários comuns (state corrompido, worktree órfão, custo descontrolado, push
-bloqueado pelo hook, voice cache stale, etc.) estão documentados em
-[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) com **Sintomas /
-Diagnóstico / Remediação**.
+Common scenarios (corrupted state, orphaned worktree, runaway cost, stale voice cache, blocked push) are documented in [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) with **Symptoms / Diagnosis / Remediation**.
 
-## Inspirações
+## Compatibility
 
-- [yail259/overnight](https://github.com/yail259/overnight) — 4 modos (tidy/refine/build/radical), voice matching, meta-learning.
-- [thebasedcapital/nightcrawler](https://github.com/thebasedcapital/nightcrawler) — loop autônomo overnight com TUI.
-- [kunchenguid/gnhf](https://github.com/kunchenguid/gnhf) — disciplina de loop: branch isolada, commit atômico por iter, rollback em fail, caps de iteração/tokens.
-- GSD (`get-shit-done`) — discuss + plan + execute + ship + verify como pipeline.
-- `everything-claude-code:autonomous-agent-harness` — uso nativo de `ScheduleWakeup`/`Cron` e MCPs vivos durante o loop.
+- Claude Code (primary target).
+- Codex CLI (telemetry support; loop execution may require adapter — see roadmap).
+- Any language with a CLI test runner.
 
-## Licença
+## Related projects
+
+- [anthropics/claude-code](https://github.com/anthropics/claude-code) — official Claude Code CLI.
+- Claude Code skill marketplaces and plugin registries — sleepwell composes with any well-formed skill or MCP server you install.
+
+Inspired by prior overnight-agent work in the community: branch-isolated loops with atomic commits, mode-based prompting, and voice/meta adaptation.
+
+## Contributing
+
+Issues and pull requests welcome. The loop, schema, and ritual are documented in [`lib/ritual.md`](lib/ritual.md) (the authoritative source). Run `scripts/check-skill-deps.sh` to audit external skill references before opening a PR.
+
+## License
 
 MIT
