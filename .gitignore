@@ -1,0 +1,99 @@
+# ---------------------------------------------------------------------------
+# Sistema operacional
+# ---------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# Editores e IDEs
+# ---------------------------------------------------------------------------
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ---------------------------------------------------------------------------
+# Cursor
+# ---------------------------------------------------------------------------
+.cursor/
+.cursorignore.local
+
+# ---------------------------------------------------------------------------
+# Claude Code (configurações locais e estado)
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+.claude/.credentials.json
+.claude/cache/
+.claude/logs/
+.claude/state/
+
+# ---------------------------------------------------------------------------
+# Variáveis de ambiente e segredos
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# ---------------------------------------------------------------------------
+# Logs e arquivos temporários
+# ---------------------------------------------------------------------------
+*.log
+logs/
+tmp/
+temp/
+.cache/
+*.bak
+*.tmp
+
+# ---------------------------------------------------------------------------
+# Node.js (caso surjam scripts auxiliares)
+# ---------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.npm/
+dist/
+build/
+
+# ---------------------------------------------------------------------------
+# Python (caso surjam scripts auxiliares)
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------------------
+# Saídas locais e arquivos pessoais
+# ---------------------------------------------------------------------------
+TODO.local.md
+NOTES.local.md
+scratch/
+.local/

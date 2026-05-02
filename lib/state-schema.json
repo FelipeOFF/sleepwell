@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/FelipeOFF/sleepwell/state-schema.json",
+  "title": "sleepwell state",
+  "description": "Estado persistente do loop sleepwell. Vive em .sleepwell/state.json no repo onde o loop roda.",
+  "type": "object",
+  "required": [
+    "version",
+    "intent",
+    "slug",
+    "mode",
+    "branch",
+    "iteration",
+    "max_iter",
+    "consecutive_failures",
+    "total_passes",
+    "total_fails",
+    "started_at",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Versão do schema. Hoje 1."
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Frase original do usuário."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Slug kebab-case derivado do intent."
+    },
+    "mode": {
+      "enum": ["tidy", "refine", "build", "radical"],
+      "description": "Modo de operação."
+    },
+    "branch": {
+      "type": "string",
+      "pattern": "^sleepwell/.+",
+      "description": "Branch isolada do loop."
+    },
+    "worktree_path": {
+      "type": ["string", "null"],
+      "description": "Path absoluto do worktree, ou null se rodando sem worktree."
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Iterações já EXECUTADAS (pass ou fail)."
+    },
+    "max_iter": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 20
+    },
+    "stop_when": {
+      "type": ["string", "null"],
+      "description": "Condição NL avaliada ao fim de cada iter."
+    },
+    "dry_run": {
+      "type": "boolean",
+      "default": false
+    },
+    "consecutive_failures": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Reset a 0 a cada PASS. ≥3 → abort."
+    },
+    "total_passes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_fails": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_iter_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "stopped_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "status": {
+      "enum": ["running", "done", "aborted", "stopped"]
+    },
+    "verify_cmds": {
+      "type": "object",
+      "description": "Comandos de verificação. 'auto' = detectar.",
+      "properties": {
+        "lint": { "type": "string" },
+        "typecheck": { "type": "string" },
+        "test": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "voice_profile_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Quando o voice profile cacheado foi gerado."
+    },
+    "calibration_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Quando a calibration foi gerada."
+    },
+    "abort_reason": {
+      "type": ["string", "null"]
+    }
+  }
+}

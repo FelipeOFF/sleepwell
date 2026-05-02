@@ -1,0 +1,22 @@
+{
+  "name": "sleepwell",
+  "version": "0.1.0",
+  "description": "Loop autônomo nativo do Claude Code — combina disciplina do gnhf (commit atômico, rollback, branch isolada) com adaptação do overnight (voice matching, modos, meta-learning), tudo dentro de uma sessão CC com cache quente e MCPs vivos.",
+  "author": {
+    "name": "Felipe Oliveira",
+    "email": "felipeoliveireferreira@gmail.com",
+    "url": "https://github.com/FelipeOFF"
+  },
+  "homepage": "https://github.com/FelipeOFF/sleepwell",
+  "repository": "https://github.com/FelipeOFF/sleepwell",
+  "license": "MIT",
+  "keywords": [
+    "autonomous",
+    "loop",
+    "overnight",
+    "gnhf",
+    "agent-harness",
+    "voice-matching",
+    "meta-learning"
+  ]
+}
