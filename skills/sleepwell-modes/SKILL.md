@@ -1,52 +1,52 @@
 ---
 name: sleepwell-modes
-description: Index dos 4 modos de operação do sleepwell (tidy, refine, build, radical). Use para escolher o modo certo dada a intent ou para carregar o template do modo durante uma iteração.
+description: Index of the 4 sleepwell operation modes (tidy, refine, build, radical). Use to pick the right mode given the intent or to load the mode template during an iteration.
 ---
 
 # sleepwell-modes
 
-O sleepwell opera em 4 modos. Cada modo molda o "ritmo" e o "apetite por risco" das iterações.
+Sleepwell operates in 4 modes. Each mode shapes the "rhythm" and "risk appetite" of the iterations.
 
-| Modo | Apetite | Risco | Output típico |
+| Mode | Appetite | Risk | Typical output |
 |---|---|---|---|
-| `tidy` | Limpeza, organização, deps | Baixíssimo | Renames, reorganização, dep bumps, lint fixes |
-| `refine` (default) | Refactor incremental, melhorias | Baixo-médio | Pequenos refactors, cobertura de testes, naming |
-| `build` | Construir feature nova | Médio | TDD-first feature, novos endpoints/componentes |
-| `radical` | Reescrever subsistemas | Alto | Substitui módulos, troca de stack pontual |
+| `tidy` | Cleanup, organization, deps | Very low | Renames, reorg, dep bumps, lint fixes |
+| `refine` (default) | Incremental refactor, improvements | Low-medium | Small refactors, test coverage, naming |
+| `build` | Build a new feature | Medium | TDD-first feature, new endpoints/components |
+| `radical` | Rewrite subsystems | High | Replace modules, targeted stack swap |
 
-## Como escolher
+## How to choose
 
-- "Limpa imports desnecessários e rode prettier" → **tidy**.
-- "Refatora o auth pra usar o novo middleware sem mudar a API" → **refine**.
-- "Implementa o endpoint /reports/csv com testes" → **build**.
-- "Reescreve o cache em cima de Redis em vez de in-memory" → **radical**.
+- "Clean up unused imports and run prettier" -> **tidy**.
+- "Refactor auth to use the new middleware without changing the API" -> **refine**.
+- "Implement the /reports/csv endpoint with tests" -> **build**.
+- "Rewrite the cache on top of Redis instead of in-memory" -> **radical**.
 
-Default seguro: **refine** quando a intent não é clara.
+Safe default: **refine** when the intent is unclear.
 
 ## Templates
 
-Cada modo tem um template que é injetado no prompt da iteração. Os arquivos vivem em:
+Each mode has a template that is injected into the iteration prompt. The files live in:
 
 - `lib/modes/tidy.md`
 - `lib/modes/refine.md`
 - `lib/modes/build.md`
 - `lib/modes/radical.md`
 
-Carregue via `Read` no momento de montar o prompt da iteração (ver `sleepwell-loop`).
+Load via `Read` when assembling the iteration prompt (see `sleepwell-loop`).
 
-## Princípios comuns aos 4 modos
+## Principles shared by all 4 modes
 
-- **Uma iteração = uma unidade lógica = um commit.** Não empilhar.
-- **Verde antes de pass:** lint + types + tests devem passar.
-- **Rollback agressivo:** falhou? `git reset --hard HEAD`. Não tente "consertar de novo na mesma iter".
-- **Conventional commits.** `<type>(sleepwell): <título PT-BR>` com corpo explicando o porquê.
-- **Notes append-only.** Cada iter adiciona ao `notes.md`, nunca reescreve.
+- **One iteration = one logical unit = one commit.** Do not stack.
+- **Green before pass:** lint + types + tests must pass.
+- **Aggressive rollback:** failed? `git reset --hard HEAD`. Do not try to "fix it again in the same iter".
+- **Conventional commits.** `<type>(sleepwell): <title>` with a body explaining the why.
+- **Append-only notes.** Each iter appends to `notes.md`, never rewrites.
 
-## Quando trocar de modo no meio do loop
+## When to switch modes mid-loop
 
-Permitido, mas raro. Atualize `state.json` `mode` e o ritual continua. Casos:
+Allowed, but rare. Update `state.json` `mode` and the ritual continues. Cases:
 
-- Modo `build` virou `tidy` porque a feature ficou pronta antes do max-iter (sobra: limpeza).
-- Modo `refine` virou `radical` porque viu que o subsistema não dá pra refatorar — precisa reescrever.
+- Mode `build` became `tidy` because the feature finished before max-iter (leftover: cleanup).
+- Mode `refine` became `radical` because the subsystem cannot be refactored — it must be rewritten.
 
-Se trocar, registre em `notes.md` o motivo.
+If you switch, record the reason in `notes.md`.

@@ -1,85 +1,85 @@
 ---
 name: git-worktrees
-description: Stub mínimo para uso de git worktree no bootstrap do sleepwell. Cria/remove worktrees em ../<repo>-wt/<name> com branch isolada.
+description: Minimal stub for using git worktree during sleepwell bootstrap. Creates/removes worktrees in ../<repo>-wt/<name> with an isolated branch.
 ---
 
 <!--
-Licença: Apache-2.0
-Origem inspirada em superpowers:using-git-worktrees (apenas conceitos
-gerais de uso de git worktree do próprio Git). Esta versão é uma
-reescrita simplificada e original em PT-BR, voltada ao fluxo do
-sleepwell. Nenhum conteúdo proprietário foi copiado.
+License: Apache-2.0
+Inspired by superpowers:using-git-worktrees (only general concepts of
+using git worktree from Git itself). This version is a simplified,
+original rewrite tailored to the sleepwell flow. No proprietary content
+was copied.
 -->
 
 # git-worktrees (vendor stub)
 
-Stub minimalista para o fluxo core do sleepwell rodar **sem depender** da
-skill externa `superpowers:using-git-worktrees`. Cobre só o que o bootstrap
-precisa.
+Minimal stub so the sleepwell core flow can run **without depending on** the
+external `superpowers:using-git-worktrees` skill. Covers only what the
+bootstrap needs.
 
-## Quando usar
+## When to use
 
-Quando o bootstrap do sleepwell roda com `worktree_enabled=true` (default) e
-precisa criar uma árvore de trabalho isolada para a branch `sleepwell/<slug>`.
+When the sleepwell bootstrap runs with `worktree_enabled=true` (default) and
+needs to create an isolated working tree for the `sleepwell/<slug>` branch.
 
-## Padrão de path
+## Path pattern
 
 ```
 ../<repo>-wt/<name>
 ```
 
-Onde `<repo>` é o basename do diretório atual e `<name>` é normalmente
-`sleepwell-<slug>`.
+Where `<repo>` is the basename of the current directory and `<name>` is
+typically `sleepwell-<slug>`.
 
-## Comandos
+## Commands
 
-### Criar worktree com branch nova
+### Create worktree with new branch
 
 ```bash
 git worktree add ../<repo>-wt/<name> -b <branch>
 ```
 
-Exemplo (sleepwell):
+Example (sleepwell):
 
 ```bash
 git worktree add ../sleepwell-wt/sleepwell-refactor-auth \
   -b sleepwell/refactor-auth
 ```
 
-### Listar worktrees existentes
+### List existing worktrees
 
 ```bash
 git worktree list
 ```
 
-### Remover worktree
+### Remove worktree
 
 ```bash
 git worktree remove ../<repo>-wt/<name>
 ```
 
-Se ficou órfão (diretório deletado manualmente):
+If orphaned (directory deleted manually):
 
 ```bash
 git worktree prune
 ```
 
-## Pré-requisitos
+## Prerequisites
 
-- Git ≥ 2.5 (suporte a `worktree`).
-- Working tree do repo principal limpo (ou estado já tratado por stash).
-- Branch alvo não existe ainda (ou `git worktree add` falha; sleepwell
-  detecta e ajusta o slug).
+- Git ≥ 2.5 (`worktree` support).
+- Main repo working tree clean (or state already handled via stash).
+- Target branch does not exist yet (or `git worktree add` fails; sleepwell
+  detects and adjusts the slug).
 
-## Erros comuns
+## Common errors
 
-- `fatal: '<branch>' is already checked out at '<path>'` → worktree existente
-  para a mesma branch. Use `git worktree list` e remova o antigo se órfão.
-- `fatal: invalid reference: <branch>` → flag `-b` ausente quando a branch
-  não existe.
+- `fatal: '<branch>' is already checked out at '<path>'` → existing worktree
+  for the same branch. Use `git worktree list` and remove the old one if orphaned.
+- `fatal: invalid reference: <branch>` → `-b` flag missing when the branch
+  does not exist.
 
-## Referência
+## Reference
 
-- `git help worktree` (manpage oficial).
-- `lib/ritual.md §2` — uso do worktree no bootstrap.
-- `commands/wt.md` (se presente no perfil global do usuário).
+- `git help worktree` (official manpage).
+- `lib/ritual.md §2` — worktree usage in bootstrap.
+- `commands/wt.md` (if present in the user's global profile).

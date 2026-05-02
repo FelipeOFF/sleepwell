@@ -1,25 +1,25 @@
 ---
 name: sleepwell-evaluator
-description: Avalia heuristicamente cada iteração via sleepwell-helper evaluate; persiste rating/observation/course_correct em state.last_eval e injeta no prompt seguinte.
+description: Heuristically evaluates each iteration via sleepwell-helper evaluate; persists rating/observation/course_correct in state.last_eval and injects into the next prompt.
 ---
 
 # sleepwell-evaluator
 
-> **Lockfile guard.** Antes de operar, checa `.sleepwell/ci-lock`: se
-> existe e contém pid vivo DIFERENTE do pid atual, recusa
-> (`sleepwell-evaluator: lock owned by pid <X>`). Se ausente ou pid morto,
-> ok. Ver `lib/ritual.md §10`.
+> **Lockfile guard.** Before operating, check `.sleepwell/ci-lock`: if it
+> exists and contains a live pid DIFFERENT from the current pid, refuse
+> (`sleepwell-evaluator: lock owned by pid <X>`). If absent or pid is dead,
+> ok. See `lib/ritual.md §10`.
 
-Avaliação heurística leve por iteração. Roda **após o verify e antes/junto da telemetria** (ver `lib/ritual.md §3`). Produz um rating curto (1–5), uma observação textual e um booleano `course_correct` indicando se a próxima iter deve ajustar o curso.
+Lightweight heuristic evaluation per iteration. Runs **after verify and before/alongside telemetry** (see `lib/ritual.md §3`). Produces a short rating (1–5), a textual observation and a `course_correct` boolean indicating whether the next iter should adjust course.
 
-A skill **coleta** sinais. A decisão de escalar (trocar de modo, abortar) fica no `sleepwell-loop` baseada no que está persistido em `state.last_eval`.
+The skill **collects** signals. The decision to escalate (switch mode, abort) lives in `sleepwell-loop` based on what is persisted in `state.last_eval`.
 
-## Quando ativar
+## When to activate
 
-- Toda iteração do `sleepwell-loop`, depois do verify (PASS ou FAIL).
-- Pedido explícito: "avalia última iter".
+- Every `sleepwell-loop` iteration, after verify (PASS or FAIL).
+- Explicit request: "evaluate the last iter".
 
-## Pipeline preferencial — `sleepwell-helper evaluate`
+## Preferred pipeline — `sleepwell-helper evaluate`
 
 ```bash
 DIFFSTAT=$(git diff --stat "$(sleepwell_base_branch)"..HEAD)
@@ -29,20 +29,20 @@ sleepwell-helper evaluate \
   --last-notes .sleepwell/notes.md
 ```
 
-Saída esperada (JSON em stdout):
+Expected output (JSON on stdout):
 
 ```json
 {
   "rating": 4,
-  "observation": "iter focada, 1 arquivo, testes verdes",
+  "observation": "focused iter, 1 file, green tests",
   "course_correct": false,
   "evaluated_at": "2026-05-02T15:42:00-03:00"
 }
 ```
 
-## Fallback — heurística bash mínima
+## Fallback — minimal bash heuristic
 
-Quando o binário `sleepwell-helper` não está disponível (`command -v sleepwell-helper` falha), produz um JSON equivalente via heurística:
+When `sleepwell-helper` is not available (`command -v sleepwell-helper` fails), produce an equivalent JSON via heuristic:
 
 ```bash
 if command -v sleepwell-helper >/dev/null 2>&1; then
@@ -57,23 +57,23 @@ else
 
   rating=3
   course_correct=false
-  observation="heurística fallback (helper ausente)"
+  observation="fallback heuristic (helper missing)"
 
   case "$LAST_STATUS" in
     *PASS*)
       files=$(printf '%s\n' "$STAT" | tail -1 | grep -oE '[0-9]+ files?' | awk '{print $1}')
       if [ -n "$files" ] && [ "$files" -le 3 ]; then
         rating=5
-        observation="PASS limpo, ${files} arquivo(s) tocados"
+        observation="clean PASS, ${files} file(s) touched"
       else
         rating=4
-        observation="PASS, diff amplo"
+        observation="PASS, wide diff"
       fi
       ;;
     *FAIL*)
       rating=2
       course_correct=true
-      observation="FAIL — sugerir ajuste de curso"
+      observation="FAIL — suggest course correction"
       ;;
   esac
 
@@ -87,9 +87,9 @@ else
 fi
 ```
 
-## Persistência atômica
+## Atomic persistence
 
-Escrever `state.last_eval` via tmpfile + rename (ver `lib/ritual.md §7.2`):
+Write `state.last_eval` via tmpfile + rename (see `lib/ritual.md §7.2`):
 
 ```bash
 tmp=$(mktemp .sleepwell/state.json.XXXXXX)
@@ -97,45 +97,45 @@ jq --argjson e "$eval_json" '.last_eval = $e' .sleepwell/state.json > "$tmp"
 mv "$tmp" .sleepwell/state.json
 ```
 
-`state.last_eval` segue o schema definido em `lib/state-schema.json` (v3, opcional):
+`state.last_eval` follows the schema defined in `lib/state-schema.json` (v3, optional):
 
 ```json
 {
   "rating": 1..5,
-  "observation": "string curta",
+  "observation": "short string",
   "course_correct": false,
   "evaluated_at": "RFC3339"
 }
 ```
 
-## Injeção no prompt da próxima iter
+## Injection into the next iteration prompt
 
-O `sleepwell-loop` (ver `lib/ritual.md §3` etapa `[prompt]`) deve adicionar, quando `state.last_eval` estiver presente:
+`sleepwell-loop` (see `lib/ritual.md §3` step `[prompt]`) must add, when `state.last_eval` is present:
 
 ```markdown
-## Avaliação anterior
+## Previous evaluation
 - Rating: <X>/5
-- Observação: <observation>
-- Curso de correção sugerido: <true|false>
+- Observation: <observation>
+- Suggested course correction: <true|false>
 ```
 
-Isso entra **antes** do `git diff --stat`, depois de voice profile/calibration.
+This goes **before** `git diff --stat`, after voice profile/calibration.
 
-## Escalonamento por curso de correção persistente
+## Escalation on persistent course correction
 
-Se `course_correct == true` em **2 iters consecutivas**, o loop deve escalar:
+If `course_correct == true` for **2 consecutive iters**, the loop must escalate:
 
-1. Se `state.mode == "refine"` → trocar para `tidy` (modo mais conservador) e avisar no notes.md: `mode escalation: refine → tidy (2× course_correct)`.
-2. Se já estiver em `tidy` ou outro modo conservador → solicitar abort com `abort_reason="evaluator: course_correct sustained"`.
+1. If `state.mode == "refine"` → switch to `tidy` (more conservative mode) and warn in notes.md: `mode escalation: refine → tidy (2× course_correct)`.
+2. If already in `tidy` or another conservative mode → request abort with `abort_reason="evaluator: course_correct sustained"`.
 
-A detecção é feita lendo o `state.last_eval.course_correct` atual e comparando com a marca da iter anterior (que pode ser persistida em `state.last_eval_prev` se necessário, ou inferida do tail de `notes.md` onde a skill registra cada avaliação).
+Detection works by reading the current `state.last_eval.course_correct` and comparing with the previous iter's mark (which can be persisted in `state.last_eval_prev` if needed, or inferred from the tail of `notes.md` where the skill records each evaluation).
 
-## Privacidade
+## Privacy
 
-- Avaliação roda 100% local. Nada sai do disco.
-- Não inclua paths sensíveis na observation.
+- Evaluation runs 100% local. Nothing leaves the disk.
+- Do not include sensitive paths in the observation.
 
-## Quando NÃO avaliar
+## When NOT to evaluate
 
-- `state.dry_run == true` → ainda avalia (informativo), mas o loop pode ignorar `course_correct` para decisões.
-- Iter 0 (bootstrap) → não há o que avaliar; pula.
+- `state.dry_run == true` → still evaluate (informative), but the loop may ignore `course_correct` for decisions.
+- Iter 0 (bootstrap) → nothing to evaluate; skip.

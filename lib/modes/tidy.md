@@ -1,35 +1,35 @@
-# Modo: tidy
+# Mode: tidy
 
-**Apetite:** limpeza, organização, deps. **Risco:** baixíssimo.
+**Appetite:** cleanup, organization, deps. **Risk:** very low.
 
-## O que fazer numa iter tidy
+## What to do in a tidy iter
 
-- Remover imports não usados.
-- Aplicar formatador (prettier, black, gofmt, rustfmt).
-- Renomear identificadores claramente errados (typo, inconsistência).
-- Reorganizar ordem de funções/imports por convenção.
-- Atualizar deps minor/patch.
-- Adicionar JSDoc/docstrings que estavam faltando em APIs públicas.
-- Mover arquivo pra pasta correta (sem mudar conteúdo).
-- Quebrar arquivo gigante em arquivos menores (sem mudar comportamento).
+- Remove unused imports.
+- Apply a formatter (prettier, black, gofmt, rustfmt).
+- Rename clearly wrong identifiers (typo, inconsistency).
+- Reorder functions/imports per convention.
+- Update minor/patch deps.
+- Add missing JSDoc/docstrings on public APIs.
+- Move a file to the correct folder (without changing content).
+- Split a giant file into smaller ones (without changing behavior).
 
-## O que NÃO fazer
+## What NOT to do
 
-- **Nunca** mudar comportamento. Se um teste passa antes, passa depois.
-- Não introduzir abstrações novas.
-- Não refatorar lógica.
-- Não adicionar features.
-- Não fazer dep bumps major.
+- **Never** change behavior. If a test passes before, it passes after.
+- Do not introduce new abstractions.
+- Do not refactor logic.
+- Do not add features.
+- Do not do major dep bumps.
 
-## Heurística de fim
+## End heuristic
 
-Quando o repo "se sente arrumado": linter limpo, sem warnings óbvios, naming consistente, deps em dia.
+When the repo "feels tidy": clean linter, no obvious warnings, consistent naming, deps up to date.
 
-## Checklist por iter
+## Per-iter checklist
 
-- [ ] Mudança é puramente sintática/organizacional?
-- [ ] Lint melhorou ou continuou ok?
-- [ ] Testes continuam passando sem edição?
-- [ ] Diff é pequeno e mecânico?
+- [ ] Is the change purely syntactic/organizational?
+- [ ] Did lint improve or stay ok?
+- [ ] Do tests still pass without editing?
+- [ ] Is the diff small and mechanical?
 
-Se algum desses falha → cancela a iter, vai pro modo `refine`.
+If any of these fails → cancel the iter, switch to `refine`.
