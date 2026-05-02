@@ -1,0 +1,24 @@
+{
+  "name": "sleepwell",
+  "owner": {
+    "name": "Felipe Oliveira",
+    "url": "https://github.com/FelipeOFF"
+  },
+  "plugins": [
+    {
+      "name": "sleepwell",
+      "source": ".",
+      "description": "Autonomous overnight loop for Claude Code: disciplined iteration (isolated branch, atomic commits, rollback) plus adaptive behavior (5 modes, voice matching, meta-learning, cost telemetry).",
+      "version": "0.1.0",
+      "category": "automation",
+      "keywords": [
+        "autonomous",
+        "loop",
+        "overnight",
+        "agent-harness",
+        "voice-matching",
+        "meta-learning"
+      ]
+    }
+  ]
+}

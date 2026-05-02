@@ -16,8 +16,11 @@ Language- and stack-agnostic: works with any project where lint, type-check, and
 
 ## Install
 
-```bash
-/plugin install sleepwell@FelipeOFF/sleepwell
+Inside Claude Code, register the repo as a marketplace and install:
+
+```
+/plugin marketplace add FelipeOFF/sleepwell
+/plugin install sleepwell@sleepwell
 ```
 
 Or clone and symlink into your Claude Code plugins directory:
