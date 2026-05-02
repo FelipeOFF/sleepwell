@@ -1,14 +1,14 @@
 ---
 name: sleepwell-telemetry
-description: Coleta tokens/custo do runtime ativo (Claude Code ou Codex CLI) e atualiza .sleepwell/state.json.
+description: v2 — coleta tokens/custo via sleepwell-helper (Rust) com detecção multi-LLM (claude/codex/gemini); fallback bash+jq quando o helper não está disponível. Atualiza state.tokens_used, state.cost_so_far_usd e dispara abort gate de custo.
 ---
 
-# sleepwell-telemetry
+# sleepwell-telemetry (v2)
 
-Coleta telemetria de uso (tokens consumidos, custo derivado em USD) do runtime
-ativo onde o loop sleepwell está rodando. Atualiza `.sleepwell/state.json` ao
-final de cada iteração — antes do abort gate de custo (`§8.1` em
-`lib/ritual.md`).
+Coleta telemetria de uso (tokens consumidos, custo derivado em USD) do
+runtime ativo onde o loop sleepwell está rodando. Atualiza
+`.sleepwell/state.json` ao final de cada iteração — antes do abort gate de
+custo (`§8.1` em `lib/ritual.md`).
 
 Saída persistida no state:
 
@@ -17,162 +17,122 @@ Saída persistida no state:
 
 ## Detecção de runtime
 
-```
-if [ -n "$CLAUDE_CODE_VERSION" ] || [ -d "$HOME/.claude/projects" ]; then
-  runtime=claude
-elif command -v codex >/dev/null 2>&1; then
-  runtime=codex
-else
-  runtime=unknown
-fi
-```
-
-Em ambiente híbrido (ex.: CC instalado mas executando dentro do Codex CLI),
-prefere Claude se a env var `CLAUDE_CODE_VERSION` estiver presente.
-
-## Parsing — Claude Code
-
-Claude Code persiste turns em
-`~/.claude/projects/<slug>/<sessionId>.jsonl`, onde:
-
-- `slug` = `pwd` com `/` → `-` (ex.: `/Users/foo/proj` → `-Users-foo-proj`).
-- `sessionId` = arquivo `.jsonl` mais recente dentro do diretório do slug.
-
-Cada linha é um JSON com (entre outros campos) `usage`:
-
-```json
-{ "usage": {
-    "input_tokens": 1234,
-    "output_tokens": 567,
-    "cache_read_input_tokens": 2000,
-    "cache_creation_input_tokens": 0
-  }
+```bash
+detect_runtime() {
+  if [ -n "${CLAUDE_CODE_VERSION:-}" ] || [ -d "$HOME/.claude/projects" ]; then
+    echo claude
+  elif command -v codex >/dev/null 2>&1 && [ -d "$HOME/.codex/sessions" ]; then
+    echo codex
+  elif command -v gemini >/dev/null 2>&1 && [ -d "$HOME/.gemini" ]; then
+    echo gemini
+  else
+    echo unknown
+  fi
 }
 ```
 
-Soma todas as ocorrências do `.jsonl` ativo da sessão atual.
+Em ambiente híbrido, prefere Claude se `CLAUDE_CODE_VERSION` estiver presente.
 
-## Parsing — Codex CLI
-
-Codex grava sessões em `~/.codex/sessions/*.jsonl` em formato análogo. Quando
-disponível, prefira `codex usage --json` (mais confiável, evita parsear formato
-interno):
+## Localização do JSONL ativo (mais recente em mtime)
 
 ```bash
-if codex usage --json >/dev/null 2>&1; then
-  codex usage --json
-else
-  cat ~/.codex/sessions/*.jsonl
+case "$RUNTIME" in
+  claude)
+    slug=$(pwd | sed 's@/@-@g')
+    DIR="$HOME/.claude/projects/$slug"
+    ;;
+  codex)  DIR="$HOME/.codex/sessions"  ;;
+  gemini) DIR="$HOME/.gemini/sessions" ;;
+  *)      DIR=""                        ;;
+esac
+JSONL=$(ls -t "$DIR"/*.jsonl 2>/dev/null | head -1)
+```
+
+## Pipeline preferencial — `sleepwell-helper`
+
+Quando o binário Rust está disponível, delega o parsing e cálculo:
+
+```bash
+MODEL=$(jq -r '.model // "claude-sonnet-4-5"' .sleepwell/state.json)
+
+if command -v sleepwell-helper >/dev/null 2>&1 && [ -n "$JSONL" ]; then
+  result=$(sleepwell-helper parse-jsonl "$JSONL" --format "$RUNTIME" \
+           | sleepwell-helper cost --model "$MODEL")
+  # result: {"tokens_used":{...}, "cost_usd": <float>}
 fi
 ```
 
-Soma `tokens` (ou `usage.{input,output}`) por turn.
+`parse-jsonl` extrai `usage` por turn no formato detectado; `cost` aplica a
+tabela de preços do helper (mantida em `bin/sleepwell-helper/prices.toml`).
 
-## Tabela de preços (USD por 1M tokens)
+## Fallback — bash + jq
 
-> **ATUALIZAR PERIODICAMENTE.** Preços públicos da Anthropic / OpenAI mudam.
-> Última revisão: 2025-Q4. Use `unknown=true` quando o modelo não estiver
-> mapeado para evitar custo silenciosamente errado.
-
-| Modelo                     | input | output | cache_read | cache_creation |
-|----------------------------|-------|--------|------------|----------------|
-| Claude Sonnet 4.5          | 3.00  | 15.00  | 0.30       | 3.75           |
-| Claude Haiku 4.5           | 1.00  | 5.00   | 0.10       | 1.25           |
-| GPT-5 / Codex (placeholder)| 0     | 0      | 0          | 0              |
-
-GPT-5/Codex: preencher quando confirmado; até lá, marcar `unknown=true` no
-state extra para o usuário saber que o custo do run Codex não está somado.
-
-## Cálculo
-
-```
-cost = (input * P_in + output * P_out + cache_read * P_cr + cache_creation * P_cc) / 1e6
-```
-
-Acumula com o valor já presente em `state.cost_so_far_usd` (incremental por
-iter; não recalcula tudo do zero — desempate a favor de evitar overflow caso
-o JSONL seja truncado).
-
-## Escrita atômica
-
-Sempre tmpfile+rename (ver `lib/ritual.md §7.2`):
+Quando `command -v sleepwell-helper` falha, emite warning visível e usa o
+parsing inline (o legado v1):
 
 ```bash
+if ! command -v sleepwell-helper >/dev/null 2>&1; then
+  echo "warning: sleepwell-helper indisponível — usando parser bash legado" >&2
+
+  sum_tokens() {
+    jq -s '
+      map(.usage // {})
+      | reduce .[] as $u (
+          {input:0,output:0,cache_read:0,cache_creation:0};
+          .input          += ($u.input_tokens // 0)              |
+          .output         += ($u.output_tokens // 0)             |
+          .cache_read     += ($u.cache_read_input_tokens // 0)   |
+          .cache_creation += ($u.cache_creation_input_tokens // 0)
+        )
+    '
+  }
+
+  if [ "$RUNTIME" = "claude" ] && [ -n "$JSONL" ]; then
+    tokens=$(jq -c '.message // .' "$JSONL" 2>/dev/null | sum_tokens)
+  elif [ "$RUNTIME" = "codex" ]; then
+    if codex usage --json >/dev/null 2>&1; then
+      tokens=$(codex usage --json | sum_tokens)
+    else
+      tokens=$(cat "$HOME"/.codex/sessions/*.jsonl 2>/dev/null | sum_tokens)
+    fi
+  elif [ "$RUNTIME" = "gemini" ] && [ -n "$JSONL" ]; then
+    tokens=$(jq -c '.message // .' "$JSONL" 2>/dev/null | sum_tokens)
+  else
+    echo "telemetry: runtime desconhecido, pulando" >&2
+    exit 0
+  fi
+
+  # Pricing default (Sonnet 4.5). Ver bin/sleepwell-helper/prices.toml.
+  P_IN=3 P_OUT=15 P_CR=0.30 P_CC=3.75
+  cost=$(jq -n \
+    --argjson t "$tokens" \
+    --argjson pin "$P_IN" --argjson pout "$P_OUT" \
+    --argjson pcr "$P_CR" --argjson pcc "$P_CC" \
+    '($t.input*$pin + $t.output*$pout + $t.cache_read*$pcr + $t.cache_creation*$pcc)/1e6')
+
+  result=$(jq -n --argjson t "$tokens" --argjson c "$cost" \
+    '{tokens_used:$t, cost_usd:$c}')
+fi
+```
+
+## Escrita atômica do state
+
+```bash
+tokens=$(printf '%s\n' "$result" | jq '.tokens_used')
+cost=$(printf '%s\n' "$result"  | jq '.cost_usd')
+
 tmp=$(mktemp .sleepwell/state.json.XXXXXX)
-jq --argjson tu "$tokens_json" --argjson cost "$cost" \
+jq --argjson tu "$tokens" --argjson cost "$cost" \
    '.tokens_used = $tu | .cost_so_far_usd = $cost' \
    .sleepwell/state.json > "$tmp"
 mv "$tmp" .sleepwell/state.json
 ```
 
-## Snippet bash de exemplo
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-STATE=.sleepwell/state.json
-[ -f "$STATE" ] || { echo "no sleepwell state"; exit 0; }
-
-# Detect runtime
-if [ -n "${CLAUDE_CODE_VERSION:-}" ] || [ -d "$HOME/.claude/projects" ]; then
-  runtime=claude
-elif command -v codex >/dev/null 2>&1; then
-  runtime=codex
-else
-  runtime=unknown
-fi
-
-# Locate session file
-sum_tokens() {
-  jq -s '
-    map(.usage // {})
-    | reduce .[] as $u (
-        {input:0,output:0,cache_read:0,cache_creation:0};
-        .input          += ($u.input_tokens // 0)          |
-        .output         += ($u.output_tokens // 0)         |
-        .cache_read     += ($u.cache_read_input_tokens // 0) |
-        .cache_creation += ($u.cache_creation_input_tokens // 0)
-      )
-  '
-}
-
-if [ "$runtime" = "claude" ]; then
-  slug=$(pwd | sed 's@/@-@g')
-  dir="$HOME/.claude/projects/$slug"
-  [ -d "$dir" ] || { echo "no claude session for $slug"; exit 0; }
-  jsonl=$(ls -t "$dir"/*.jsonl 2>/dev/null | head -1)
-  tokens=$(jq -c '.message // .' "$jsonl" 2>/dev/null | sum_tokens)
-elif [ "$runtime" = "codex" ]; then
-  if codex usage --json >/dev/null 2>&1; then
-    tokens=$(codex usage --json | sum_tokens)
-  else
-    tokens=$(cat "$HOME"/.codex/sessions/*.jsonl 2>/dev/null | sum_tokens)
-  fi
-else
-  echo "unknown runtime; skipping telemetry"; exit 0
-fi
-
-# Pricing — Sonnet 4.5 default. Atualizar tabela periodicamente.
-P_IN=3 P_OUT=15 P_CR=0.30 P_CC=3.75
-cost=$(jq -n \
-  --argjson t "$tokens" \
-  --argjson pin "$P_IN" --argjson pout "$P_OUT" \
-  --argjson pcr "$P_CR" --argjson pcc "$P_CC" \
-  '($t.input*$pin + $t.output*$pout + $t.cache_read*$pcr + $t.cache_creation*$pcc)/1e6')
-
-tmp=$(mktemp "$(dirname "$STATE")/state.json.XXXXXX")
-jq --argjson tu "$tokens" --argjson cost "$cost" \
-   '.tokens_used = $tu | .cost_so_far_usd = $cost' \
-   "$STATE" > "$tmp"
-mv "$tmp" "$STATE"
-
-echo "telemetry: tokens=$(echo "$tokens" | jq -c .) cost_usd=$cost"
-```
+Ver `lib/ritual.md §7.2`.
 
 ## Abort gate de custo
 
-Após atualizar o state, o loop deve avaliar (ver `lib/ritual.md §8.1`):
+Após atualizar o state, o loop avalia (ver `lib/ritual.md §8.1`):
 
 ```
 if state.cost_budget_usd != null and
@@ -180,4 +140,22 @@ if state.cost_budget_usd != null and
    → finalize("cost", abort_reason="cost budget reached")
 ```
 
-A skill apenas **coleta**. A decisão de abortar fica no `sleepwell-loop`.
+A skill **coleta**. A decisão de abortar fica no `sleepwell-loop`. Quando a
+skill detecta `cost_so_far_usd >= cost_budget_usd`, **deve** sinalizar via
+exit code != 0 + mensagem stderr, para que o loop trate o abort gate sem
+ambiguidade.
+
+## Tabela de preços
+
+Para o pipeline preferencial, a tabela vive em
+`bin/sleepwell-helper/prices.toml` (atualizar lá quando preços mudarem). O
+fallback usa defaults inline para Sonnet 4.5; revisar trimestralmente.
+
+| Modelo                     | input | output | cache_read | cache_creation |
+|----------------------------|-------|--------|------------|----------------|
+| Claude Sonnet 4.5          | 3.00  | 15.00  | 0.30       | 3.75           |
+| Claude Haiku 4.5           | 1.00  | 5.00   | 0.10       | 1.25           |
+| GPT-5 / Codex (placeholder)| 0     | 0      | 0          | 0              |
+| Gemini 2.5 Pro (placeholder)| 0    | 0      | 0          | 0              |
+
+Modelos não mapeados → custo 0 + warning `unknown=true`.
