@@ -1,95 +1,95 @@
 ---
-description: Reconcilia outcomes de runs anteriores (merged/partial/discarded) via git branch --merged.
+description: Reconciles outcomes from previous runs (merged/partial/discarded) via git branch --merged.
 ---
 
 # /sleepwell:sleepwell-reconcile
 
-Marca, retroativamente, o **outcome** de cada run sleepwell já arquivada,
-inspecionando se a branch `sleepwell/<slug>` foi de fato integrada à base.
+Retroactively marks the **outcome** of each archived sleepwell run by
+inspecting whether the branch `sleepwell/<slug>` was actually integrated into the base.
 
-Idempotente: pode ser rodado quantas vezes necessário; sobrescreve apenas o
-campo `outcome` no `state.json` arquivado.
+Idempotent: can be run as many times as needed; only overwrites the
+`outcome` field in the archived `state.json`.
 
 ## Outcomes
 
-- **merged** — todos os commits da branch aparecem na base (totalmente
-  integrada). Detectado via `git branch --merged $(sleepwell_base_branch)`.
-- **partial** — pelo menos um commit foi cherry-picked (mas a branch como um
-  todo não está merged). Detectado via `git cherry <base> <branch>`: linhas
-  começando com `+` indicam commits NÃO presentes na base; linhas com `-`
-  indicam commits presentes (cherry-picked). `partial` quando há ao menos um
-  `-` mas nem todos.
-- **discarded** — nenhum commit absorvido (todos `+` em `git cherry`, e
-  branch não está em `--merged`).
+- **merged** — all commits of the branch appear in the base (fully
+  integrated). Detected via `git branch --merged $(sleepwell_base_branch)`.
+- **partial** — at least one commit was cherry-picked (but the branch as a
+  whole is not merged). Detected via `git cherry <base> <branch>`: lines
+  starting with `+` indicate commits NOT present in the base; lines with `-`
+  indicate commits present (cherry-picked). `partial` when there is at least one
+  `-` but not all.
+- **discarded** — no commit absorbed (all `+` in `git cherry`, and
+  branch is not in `--merged`).
 
-## Comportamento
+## Behavior
 
-1. Detecta a base via helper de `lib/ritual.md §7.1` (`sleepwell_base_branch`).
-2. Lista candidatos:
-   - branches locais que casam com `sleepwell/*` (`git branch --list 'sleepwell/*'`);
-   - subdiretórios de `.sleepwell/archive/<run-id>/` que contenham `state.json`.
-3. Para cada run arquivada:
-   - Lê `.sleepwell/archive/<run-id>/state.json` (campo `branch`, `mode`,
+1. Detects the base via the `lib/ritual.md §7.1` helper (`sleepwell_base_branch`).
+2. Lists candidates:
+   - local branches matching `sleepwell/*` (`git branch --list 'sleepwell/*'`);
+   - subdirectories of `.sleepwell/archive/<run-id>/` that contain `state.json`.
+3. For each archived run:
+   - Reads `.sleepwell/archive/<run-id>/state.json` (fields `branch`, `mode`,
      `iteration`, `cost_so_far_usd`).
-   - Se a branch não existe mais localmente:
-     - Sem refs → `outcome = "discarded"` (não há como inferir cherry-pick).
-   - Se a branch existe:
+   - If the branch no longer exists locally:
+     - No refs → `outcome = "discarded"` (no way to infer cherry-pick).
+   - If the branch exists:
      - `git branch --merged "$BASE" | grep -qx "  $branch"` → `merged`.
-     - Senão, `git cherry "$BASE" "$branch"`:
-       - todas as linhas começam com `+` → `discarded`;
-       - mistura de `+` e `-` → `partial`;
-       - todas com `-` mas branch não está em `--merged` (raro) → `partial`.
-4. Atualiza atomically (`tmpfile + mv`) o `state.json` arquivado adicionando:
+     - Otherwise, `git cherry "$BASE" "$branch"`:
+       - all lines start with `+` → `discarded`;
+       - mix of `+` and `-` → `partial`;
+       - all with `-` but branch is not in `--merged` (rare) → `partial`.
+4. Atomically updates (`tmpfile + mv`) the archived `state.json` adding:
    ```json
    {
      "outcome": "merged|partial|discarded",
      "outcome_reconciled_at": "<ISO>"
    }
    ```
-5. Imprime tabela markdown:
+5. Prints markdown table:
 
 ```
-| Branch                       | Categoria | Outcome   | Iters | Cost     |
+| Branch                       | Category  | Outcome   | Iters | Cost     |
 |------------------------------|-----------|-----------|-------|----------|
 | sleepwell/extract-auth       | refine    | merged    | 12    | $0.84    |
 | sleepwell/rewrite-pipeline   | radical   | partial   | 18    | $2.10    |
 | sleepwell/cleanup-deps       | tidy      | discarded | 4     | $0.12    |
 ```
 
-`Categoria` = `state.mode`. `Cost` = `state.cost_so_far_usd` formatado em
-USD (2 casas).
+`Category` = `state.mode`. `Cost` = `state.cost_so_far_usd` formatted in
+USD (2 decimals).
 
-## Idempotência
+## Idempotency
 
-- Roda apenas leitura sobre git (sem modificações de branch).
-- O único side-effect é reescrever o campo `outcome` em arquivos JSON de
-  arquivo (`.sleepwell/archive/<run-id>/state.json`). Sobrescrever com o
-  mesmo valor é no-op semântico.
-- Pode ser invocado N vezes; cada chamada recalcula com base no estado
-  atual do git.
+- Runs read-only on git (no branch modifications).
+- The only side-effect is rewriting the `outcome` field in archived JSON
+  files (`.sleepwell/archive/<run-id>/state.json`). Overwriting with the
+  same value is a semantic no-op.
+- Can be invoked N times; each call recomputes based on the current
+  git state.
 
 ## Edge cases
 
-- `.sleepwell/archive/` ausente → mensagem: "nenhuma run arquivada para
-  reconciliar."
-- `state.json` arquivado corrompido → pula com aviso, segue.
-- Base branch não detectável (repo sem main/master/develop) → erro
-  explicativo, abort.
-- Run cuja branch foi deletada **e** rebase/squash sumiu com os SHAs
-  originais → `discarded` (sem âncora para inferir cherry-pick).
+- `.sleepwell/archive/` missing → message: "no archived runs to
+  reconcile."
+- archived `state.json` corrupted → skips with warning, continues.
+- Base branch not detectable (repo without main/master/develop) → explanatory
+  error, abort.
+- Run whose branch was deleted **and** rebase/squash erased the original SHAs
+  → `discarded` (no anchor to infer cherry-pick).
 
-## Sem efeitos colaterais destrutivos
+## No destructive side effects
 
-Nunca deleta branch, nunca dá `git gc`, nunca move arquivo. Apenas
-**lê git** e **escreve campo `outcome`** no JSON arquivado.
+Never deletes branch, never runs `git gc`, never moves a file. Only
+**reads git** and **writes the `outcome` field** to the archived JSON.
 
-## Pós-execução
+## Post-execution
 
-Sugere:
+Suggests:
 ```
-para auditar runs descartadas:
+to audit discarded runs:
   ls .sleepwell/archive/
 
-para limpar branches já merged:
+to clean up already-merged branches:
   git branch --merged $(sleepwell_base_branch) | grep '^  sleepwell/' | xargs -r git branch -d
 ```

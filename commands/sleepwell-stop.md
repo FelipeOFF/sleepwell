@@ -1,16 +1,16 @@
 ---
-description: Para o loop sleepwell. Marca state como "stopped" para que próximas wakeups abortem na primeira checagem.
+description: Stops the sleepwell loop. Marks state as "stopped" so future wakeups abort on the first check.
 ---
 
 # /sleepwell:sleepwell-stop
 
-Para o loop. Não destrói nada — apenas seta o flag de parada.
+Stops the loop. Destroys nothing — only sets the stop flag.
 
-## Comportamento
+## Behavior
 
-1. Lê `.sleepwell/state.json`. Se ausente → erro: "nenhum loop ativo".
-2. Se `status != "running"` → mostra "loop já está em status <X>, nada a fazer".
-3. Atualiza `.sleepwell/state.json`:
+1. Reads `.sleepwell/state.json`. If absent → error: "no active loop".
+2. If `status != "running"` → shows "loop is already in status <X>, nothing to do".
+3. Updates `.sleepwell/state.json`:
    ```json
    {
      ...
@@ -18,21 +18,21 @@ Para o loop. Não destrói nada — apenas seta o flag de parada.
      "stopped_at": "<ISO now>"
    }
    ```
-4. Append em `notes.md`:
+4. Appends to `notes.md`:
    ```
-   ## stop manual — <ISO>
-   - usuário invocou /sleepwell:sleepwell-stop
-   - próxima wakeup vai abortar na 1ª checagem
+   ## manual stop — <ISO>
+   - user invoked /sleepwell:sleepwell-stop
+   - next wakeup will abort on the 1st check
    ```
-5. (Opcional) tenta cancelar wakeups agendados — não há API direta de cancel, mas o `sleepwell-loop` no próximo wake checa `status == "stopped"` e finaliza.
-6. Mostra:
+5. (Optional) tries to cancel scheduled wakeups — there is no direct cancel API, but `sleepwell-loop` on the next wake checks `status == "stopped"` and finishes.
+6. Shows:
    ```
-   sleepwell parado.
-   próxima ação automática: nenhuma.
-   para retomar: /sleepwell:sleepwell (sem args, vai detectar state e perguntar)
-   para finalizar e mergear: /sleepwell:sleepwell-diff && git checkout main && git merge --squash <branch>
+   sleepwell stopped.
+   next automatic action: none.
+   to resume: /sleepwell:sleepwell (no args, will detect state and ask)
+   to finalize and merge: /sleepwell:sleepwell-diff && git checkout main && git merge --squash <branch>
    ```
 
-## Sem efeitos destrutivos
+## No destructive side effects
 
-`sleepwell-stop` não toca em commits, não muda branch. Apenas marca o state. É reversível: `/sleepwell:sleepwell` (sem args) pode retomar.
+`sleepwell-stop` does not touch commits, does not change branch. It only marks the state. It is reversible: `/sleepwell:sleepwell` (no args) can resume.

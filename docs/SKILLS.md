@@ -1,42 +1,42 @@
-# Mapa de dependências de skills
+# Skill dependency map
 
-O sleepwell foi desenhado para **funcionar standalone** — o fluxo core
-(bootstrap, iteração, verify, commit, rollback, ScheduleWakeup) não exige
-nenhuma skill externa. Skills opcionais melhoram a experiência mas não
-bloqueiam o loop.
+sleepwell was designed to **work standalone** — the core flow
+(bootstrap, iteration, verify, commit, rollback, ScheduleWakeup) does not require
+any external skill. Optional skills enhance the experience but do not
+block the loop.
 
-## Política minimalista de bundling
+## Minimalist bundling policy
 
-Vendoramos **apenas** o estritamente necessário pro fluxo core. Tudo o que é
-"nice to have" fica como recomendação opcional — o usuário instala se quiser.
+We vendor **only** what is strictly necessary for the core flow. Anything that is
+"nice to have" stays as an optional recommendation — the user installs it if desired.
 
-| Skill referenciada                         | Tipo      | Política                          | Vendor path                                |
+| Referenced skill                           | Type      | Policy                            | Vendor path                                |
 |--------------------------------------------|-----------|-----------------------------------|--------------------------------------------|
-| `superpowers:test-driven-development`      | dev       | opcional (recomenda)              | —                                          |
-| `obsidian-markdown`                        | recap     | opcional                          | —                                          |
+| `superpowers:test-driven-development`      | dev       | optional (recommended)            | —                                          |
+| `obsidian-markdown`                        | recap     | optional                          | —                                          |
 | `superpowers:using-git-worktrees`          | bootstrap | required → vendor                 | `skills/vendor/git-worktrees/SKILL.md`     |
-| `everything-claude-code:gateguard`         | hooks     | substituído pelos hooks locais    | `hooks/block-push.sh`, `hooks/scope-guard.sh` |
+| `everything-claude-code:gateguard`         | hooks     | replaced by local hooks           | `hooks/block-push.sh`, `hooks/scope-guard.sh` |
 
-### Detalhes por linha
+### Per-line details
 
-**`superpowers:test-driven-development`** — usada no modo `build` quando o loop
-opta por TDD-first. Sem ela, o loop ainda funciona; cai no fluxo verify
-padrão. Recomendado para usuários que rodam `--mode build`.
+**`superpowers:test-driven-development`** — used in `build` mode when the loop
+opts for TDD-first. Without it, the loop still works; falls back to the standard
+verify flow. Recommended for users running `--mode build`.
 
-**`obsidian-markdown`** — usada apenas no recap final/diário. Sem ela, recap
-gera markdown plain. Não bloqueia.
+**`obsidian-markdown`** — used only in the final/diary recap. Without it, recap
+generates plain markdown. Does not block.
 
-**`superpowers:using-git-worktrees`** — referenciada no bootstrap quando
-`worktree_enabled=true` (default). Como worktree é o caminho default e
-seguro, vendoramos um stub mínimo (`skills/vendor/git-worktrees/SKILL.md`)
-para garantir que o fluxo funcione sem instalar superpowers.
+**`superpowers:using-git-worktrees`** — referenced at bootstrap when
+`worktree_enabled=true` (default). Since worktree is the default and
+safe path, we vendor a minimal stub (`skills/vendor/git-worktrees/SKILL.md`)
+to ensure the flow works without installing superpowers.
 
-**`everything-claude-code:gateguard`** — guardas de escrita/push. **Não
-vendoramos** porque temos hooks próprios (`hooks/block-push.sh`,
-`hooks/scope-guard.sh`) registrados em `.claude-plugin/plugin.json` que
-cobrem o caso de uso.
+**`everything-claude-code:gateguard`** — write/push guards. **We do not
+vendor** because we have our own hooks (`hooks/block-push.sh`,
+`hooks/scope-guard.sh`) registered in `.claude-plugin/plugin.json` that
+cover the use case.
 
-## Verificação
+## Verification
 
-Rode `scripts/check-skill-deps.sh` para listar referências a skills externas
-no plugin e checar quais não estão vendoradas. Saída útil em CI / pre-release.
+Run `scripts/check-skill-deps.sh` to list references to external skills
+in the plugin and check which are not vendored. Useful output for CI / pre-release.

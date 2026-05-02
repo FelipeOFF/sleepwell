@@ -1,150 +1,150 @@
 # Troubleshooting — sleepwell
 
-Playbook PT-BR para problemas comuns ao rodar o loop. Cada cenário segue o
-formato **Sintomas / Diagnóstico / Remediação**.
+Playbook for common issues when running the loop. Each scenario follows the
+**Symptoms / Diagnosis / Remediation** format.
 
 ---
 
-## 1. State corrompido (`.sleepwell/state.json` inválido)
+## 1. Corrupted state (`.sleepwell/state.json` invalid)
 
-**Sintomas**
+**Symptoms**
 
-- `/sleepwell:sleepwell-status` falha com erro de parse JSON.
-- Próxima retomada do loop crasha imediatamente.
-- `cat .sleepwell/state.json` mostra JSON truncado ou caractere lixo.
+- `/sleepwell:sleepwell-status` fails with a JSON parse error.
+- Next loop resume crashes immediately.
+- `cat .sleepwell/state.json` shows truncated JSON or garbage characters.
 
-**Diagnóstico**
+**Diagnosis**
 
 ```bash
 jq . .sleepwell/state.json
 ```
 
-Se `jq` reclama de parse, o arquivo está corrompido. Causas usuais:
-processo CC derrubado entre `mktemp` e `mv` (raro — escrita é atômica), disk
-full, ou edição manual mal feita.
+If `jq` complains about parsing, the file is corrupted. Common causes:
+CC process killed between `mktemp` and `mv` (rare — write is atomic), disk
+full, or bad manual edit.
 
-**Remediação**
+**Remediation**
 
-1. Procurar o último archive válido:
+1. Find the latest valid archive:
    ```bash
    ls -lt .sleepwell/archive/
    ```
-2. Restaurar:
+2. Restore:
    ```bash
    cp .sleepwell/archive/<timestamp>/state.json .sleepwell/state.json
    ```
-3. Se não houver archive utilizável, bootstrap fresh:
+3. If no usable archive, fresh bootstrap:
    ```bash
    mv .sleepwell/state.json .sleepwell/state.json.broken
-   /sleepwell:sleepwell "<intent original>" [--mode ...] [--max-iter ...]
+   /sleepwell:sleepwell "<original intent>" [--mode ...] [--max-iter ...]
    ```
 
 ---
 
-## 2. Worktree órfão
+## 2. Orphaned worktree
 
-**Sintomas**
+**Symptoms**
 
-- `git worktree add` falha com `<branch> is already checked out at <path>`.
-- Diretório `../<repo>-wt/sleepwell:sleepwell-<slug>` foi removido manualmente, mas o
-  Git ainda registra o worktree.
+- `git worktree add` fails with `<branch> is already checked out at <path>`.
+- The directory `../<repo>-wt/sleepwell:sleepwell-<slug>` was removed manually, but
+  Git still records the worktree.
 
-**Diagnóstico**
+**Diagnosis**
 
 ```bash
 git worktree list
 ```
 
-Worktrees marcados como `prunable` ou apontando para path inexistente são
-órfãos.
+Worktrees marked as `prunable` or pointing to a non-existent path are
+orphans.
 
-**Remediação**
+**Remediation**
 
 ```bash
-git worktree prune          # limpa registros sem diretório no disco
-git worktree remove <path>  # remove explicitamente um worktree
+git worktree prune          # cleans up records without on-disk dirs
+git worktree remove <path>  # explicitly removes a worktree
 ```
 
-Confirme com `git worktree list`. Depois retome o loop normalmente.
+Confirm with `git worktree list`. Then resume the loop normally.
 
 ---
 
-## 3. ScheduleWakeup duplicado
+## 3. Duplicated ScheduleWakeup
 
-**Sintomas**
+**Symptoms**
 
-- Múltiplas iterações disparando "ao mesmo tempo".
-- `notes.md` mostra duas iters com timestamp muito próximo.
-- Logs do Claude Code com dois resumes consecutivos.
+- Multiple iterations firing "at the same time".
+- `notes.md` shows two iters with very close timestamps.
+- Claude Code logs with two consecutive resumes.
 
-**Diagnóstico**
+**Diagnosis**
 
 ```bash
 ls -la .sleepwell/resume.lock 2>/dev/null
 cat .sleepwell/resume.lock 2>/dev/null
 ```
 
-Se o `.sleepwell/resume.lock` existe e está velho (PID morto, ou data antiga),
-um wakeup anterior travou sem soltar a trava — e um segundo schedule foi
-criado.
+If `.sleepwell/resume.lock` exists and is old (dead PID, or old date),
+a previous wakeup hung without releasing the lock — and a second schedule was
+created.
 
-**Remediação**
+**Remediation**
 
-1. Verificar se o PID listado no lock ainda está vivo (`ps -p <pid>`).
-2. Se morto, remover o lock manualmente:
+1. Check whether the PID listed in the lock is still alive (`ps -p <pid>`).
+2. If dead, remove the lock manually:
    ```bash
    rm .sleepwell/resume.lock
    ```
-3. Se vivo e duplicado, parar o loop com `/sleepwell:sleepwell-stop` e reiniciar.
+3. If alive and duplicated, stop the loop with `/sleepwell:sleepwell-stop` and restart.
 
 ---
 
-## 4. Voice cache stale
+## 4. Stale voice cache
 
-**Sintomas**
+**Symptoms**
 
-- Loop produz commits com tom muito diferente do habitual do usuário.
-- `voice-profile.md` está datado de muitos dias atrás.
-- O usuário mudou o estilo de pedido recentemente e o loop continua com voice
-  antigo.
+- Loop produces commits with a tone very different from the user's usual.
+- `voice-profile.md` is dated many days ago.
+- The user changed request style recently and the loop continues with old
+  voice.
 
-**Diagnóstico**
+**Diagnosis**
 
 ```bash
 stat -f '%Sm' .sleepwell/voice-profile.md   # macOS
 stat -c '%y' .sleepwell/voice-profile.md    # linux
 ```
 
-Se o arquivo tem mais de 7 dias, deveria ter sido re-extraído
-automaticamente. Se não foi, force.
+If the file is more than 7 days old, it should have been re-extracted
+automatically. If not, force it.
 
-**Remediação**
+**Remediation**
 
 ```bash
 rm .sleepwell/voice-profile.md
 ```
 
-Próxima iter dispara nova extração via `sleepwell-profile`.
+Next iter triggers fresh extraction via `sleepwell-profile`.
 
 ---
 
-## 5. Lint não detectado
+## 5. Lint not detected
 
-**Sintomas**
+**Symptoms**
 
-- `verify_cmds.lint` está vazio em `state.json`.
-- Iters comitam código sem checar lint.
-- `auto` detection não encontrou nada (projeto sem `eslint`/`ruff`/etc).
+- `verify_cmds.lint` is empty in `state.json`.
+- Iters commit code without checking lint.
+- `auto` detection found nothing (project without `eslint`/`ruff`/etc).
 
-**Diagnóstico**
+**Diagnosis**
 
 ```bash
 jq '.verify_cmds' .sleepwell/state.json
 ```
 
-**Remediação**
+**Remediation**
 
-Setar manualmente via edição atômica:
+Set manually via atomic edit:
 
 ```bash
 tmp=$(mktemp .sleepwell/state.json.XXXXXX)
@@ -152,67 +152,67 @@ jq '.verify_cmds.lint = "npm run lint"' .sleepwell/state.json > "$tmp"
 mv "$tmp" .sleepwell/state.json
 ```
 
-Substitua `npm run lint` pelo comando real do projeto. Aplica o mesmo padrão
-para `typecheck` e `test`.
+Replace `npm run lint` with the project's actual command. Apply the same pattern
+for `typecheck` and `test`.
 
 ---
 
-## 6. Custo crescendo sem limite
+## 6. Cost growing without limit
 
-**Sintomas**
+**Symptoms**
 
-- `/sleepwell:sleepwell-status` mostra `cost_so_far_usd` subindo rápido.
-- Sem `cost_budget_usd` configurado, o loop pode consumir orçamento
-  indefinidamente.
+- `/sleepwell:sleepwell-status` shows `cost_so_far_usd` rising fast.
+- Without `cost_budget_usd` configured, the loop can consume budget
+  indefinitely.
 
-**Diagnóstico**
+**Diagnosis**
 
 ```bash
 jq '{cost_so_far_usd, cost_budget_usd, max_cost_per_iter_usd}' \
   .sleepwell/state.json
 ```
 
-**Remediação**
+**Remediation**
 
-1. **Habilitar `--max-cost`** no próximo bootstrap:
+1. **Enable `--max-cost`** on the next bootstrap:
    ```
    /sleepwell:sleepwell "<intent>" --max-cost 5
    ```
-2. **Habilitar `--max-cost-per-iter`** para guardrail por iter:
+2. **Enable `--max-cost-per-iter`** for per-iter guardrail:
    ```
    /sleepwell:sleepwell "<intent>" --max-cost 5 --max-cost-per-iter 0.50
    ```
-3. Em loop ativo, atualizar o budget direto no state:
+3. In an active loop, update the budget directly in state:
    ```bash
    tmp=$(mktemp .sleepwell/state.json.XXXXXX)
    jq '.cost_budget_usd = 5' .sleepwell/state.json > "$tmp"
    mv "$tmp" .sleepwell/state.json
    ```
 
-Próxima iter vai checar o gate (ver `lib/ritual.md §8.1`).
+Next iter will check the gate (see `lib/ritual.md §8.1`).
 
 ---
 
-## 7. Push bloqueado pelo hook
+## 7. Push blocked by the hook
 
-**Sintomas**
+**Symptoms**
 
-- `git push` falha com mensagem do hook `block-push.sh`.
-- Mensagem cita "loop sleepwell ativo".
+- `git push` fails with a message from the `block-push.sh` hook.
+- Message mentions "active sleepwell loop".
 
-**Diagnóstico**
+**Diagnosis**
 
-Esse comportamento é **esperado**. Durante um loop ativo, `hooks/block-push.sh`
-impede push para evitar publicar trabalho ainda não validado.
+This behavior is **expected**. During an active loop, `hooks/block-push.sh`
+prevents push to avoid publishing work that has not been validated yet.
 
-**Remediação**
+**Remediation**
 
-1. Pare o loop antes de pushar:
+1. Stop the loop before pushing:
    ```
    /sleepwell:sleepwell-stop
    ```
-2. Confirme `status == "stopped"` em `/sleepwell:sleepwell-status`.
-3. Faça o push normalmente.
+2. Confirm `status == "stopped"` in `/sleepwell:sleepwell-status`.
+3. Push normally.
 
-Se você precisa pushar com o loop ainda ativo (ex.: hotfix paralelo em outra
-branch), use um worktree separado fora do escopo do `scope-guard.sh`.
+If you need to push with the loop still active (e.g., parallel hotfix on another
+branch), use a separate worktree outside the scope of `scope-guard.sh`.

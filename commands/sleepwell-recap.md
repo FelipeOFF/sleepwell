@@ -1,48 +1,48 @@
 ---
-description: Gera narrativa "minha noite" pós-run em vault Obsidian.
+description: Generates a "my night" post-run narrative in an Obsidian vault.
 argument-hint: "[--vault PATH] [--no-write]"
 ---
 
 # /sleepwell-recap
 
-Gera uma nota de diário em primeira pessoa (PT-BR) sobre a noite que o agente
-trabalhou. Lê todo o material da run e escreve em vault Obsidian no formato
-canônico de dev journal.
+Generates a first-person diary note (PT-BR) about the night the agent
+worked. Reads all material from the run and writes it to an Obsidian vault in the
+canonical dev-journal format.
 
-## Argumentos
+## Arguments
 
 ```
---vault <PATH>        diretório raiz do vault Obsidian (override)
---no-write            apenas mostra a nota gerada, não cria arquivo
+--vault <PATH>        Obsidian vault root directory (override)
+--no-write            only shows the generated note, does not create file
 ```
 
-## Resolução do vault
+## Vault resolution
 
-Ordem de precedência:
+Order of precedence:
 
-1. `--vault <path>` (se passado)
+1. `--vault <path>` (if passed)
 2. `$OBSIDIAN_VAULT` (env)
 3. `~/obsidian-vault` (default)
 
-Se o diretório não existir → cria com `mkdir -p`.
+If the directory does not exist → creates it with `mkdir -p`.
 
-## Inputs lidos
+## Inputs read
 
 - `.sleepwell/state.json` — intent, mode, branch, iters, passes, fails,
   cost_so_far_usd, started_at, last_iter_at.
-- `.sleepwell/notes.md` — log cronológico do loop.
-- `.sleepwell/calibration.md` (se existir) — tom/estilo do usuário.
-- `git log <branch>` — commits da run.
-- `git diff --stat <base>..HEAD` — onde `<base>` é `main`/`master`/`develop`
-  (detecta via `lib/ritual.md §7.1`). Se nenhum existir, usa `HEAD~N`.
+- `.sleepwell/notes.md` — chronological loop log.
+- `.sleepwell/calibration.md` (if present) — user tone/style.
+- `git log <branch>` — commits of the run.
+- `git diff --stat <base>..HEAD` — where `<base>` is `main`/`master`/`develop`
+  (detected via `lib/ritual.md §7.1`). If none exist, uses `HEAD~N`.
 
-## Path da nota
+## Note path
 
 ```
 <vault>/SleepWell/<YYYY-MM-DD>-<slug>.md
 ```
 
-`<slug>` vem de `state.slug`. Se a nota já existir, sufixa: `-2`, `-3`, ...
+`<slug>` comes from `state.slug`. If the note already exists, suffix with: `-2`, `-3`, ...
 
 ## Frontmatter
 
@@ -61,50 +61,50 @@ tags: [sleepwell, dev-journal]
 ---
 ```
 
-## Corpo (geração)
+## Body (generation)
 
-Use a skill `obsidian-markdown` se disponível, passando este prompt:
+Use the `obsidian-markdown` skill if available, passing this prompt:
 
-> Você é o usuário escrevendo no diário sobre a noite que o agente trabalhou.
-> Tom em PT-BR, primeira pessoa, contemplativo mas honesto. Inclua:
-> - o que foi tentado (intent + mode);
-> - o que deu certo e o que falhou (sem maquiar);
-> - 1 insight da noite;
-> - 1 dúvida que ficou em aberto.
+> You are the user writing in a diary about the night the agent worked.
+> Tone in PT-BR, first person, contemplative but honest. Include:
+> - what was attempted (intent + mode);
+> - what worked and what failed (no sugarcoating);
+> - 1 insight from the night;
+> - 1 open question.
 >
-> ~400 palavras. Sem listas longas — prosa de diário.
+> ~400 words. No long lists — diary prose.
 >
 > Material:
 > - intent: <state.intent>
 > - mode: <state.mode>
 > - iters/passes/fails: <X/P/F>
 > - cost: $<USD>
-> - calibration (tom): <conteúdo de calibration.md, se existir>
-> - notes.md (resumo): <últimas 50 linhas>
+> - calibration (tone): <contents of calibration.md, if present>
+> - notes.md (summary): <last 50 lines>
 > - commits: <git log oneline>
 > - diff stat: <diff --stat>
 
-Se a skill `obsidian-markdown` não estiver disponível, gere a nota
-diretamente com o mesmo prompt.
+If the `obsidian-markdown` skill is unavailable, generate the note
+directly with the same prompt.
 
 ## `--no-write`
 
-Apenas imprime no terminal o frontmatter + corpo gerados. Não toca o vault.
-Útil para revisar antes de persistir.
+Only prints the generated frontmatter + body to the terminal. Does not touch the vault.
+Useful for reviewing before persisting.
 
 ## Edge cases
 
-- `state.json` ausente → erro: "nenhum loop sleepwell encontrado neste repo."
-- `notes.md` ausente → segue com aviso (provavelmente run muito curta).
-- vault inexistente → cria diretório (`<vault>` e `<vault>/SleepWell`).
-- nota já existe → sufixa `-2`, `-3`... antes de escrever.
-- `git diff --stat` vazio → menciona no corpo que a noite foi de exploração
-  sem mudança consolidada.
+- `state.json` missing → error: "no sleepwell loop found in this repo."
+- `notes.md` missing → proceed with warning (likely a very short run).
+- vault non-existent → creates directory (`<vault>` and `<vault>/SleepWell`).
+- note already exists → suffix `-2`, `-3`... before writing.
+- empty `git diff --stat` → mentions in the body that the night was exploratory
+  with no consolidated change.
 
-## Pós-execução
+## Post-execution
 
-Mostra o path final da nota e sugere:
+Shows the final note path and suggests:
 ```
-nota gerada: <vault>/SleepWell/<YYYY-MM-DD>-<slug>.md
-abra no Obsidian ou rode `obsidian-cli open` se configurado.
+note generated: <vault>/SleepWell/<YYYY-MM-DD>-<slug>.md
+open it in Obsidian or run `obsidian-cli open` if configured.
 ```

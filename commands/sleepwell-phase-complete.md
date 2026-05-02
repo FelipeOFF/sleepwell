@@ -1,88 +1,88 @@
 ---
-description: Fecha a fase ativa do run, gera VERIFICATION.md e arquiva.
+description: Closes the active phase of the run, generates VERIFICATION.md, and archives.
 argument-hint: "[--abandon]"
 ---
 
 # /sleepwell-phase-complete
 
-Encerra a fase com `status == "active"`. Gera `VERIFICATION.md` checando
-critérios do `PLAN.md` contra o estado real (commits da fase, testes,
-diff acumulado), atualiza `state.json` e libera o slot para a próxima
-fase.
+Closes the phase with `status == "active"`. Generates `VERIFICATION.md` checking
+criteria from `PLAN.md` against the real state (phase commits, tests,
+accumulated diff), updates `state.json`, and frees the slot for the next
+phase.
 
-Ver `lib/ritual.md §9`.
+See `lib/ritual.md §9`.
 
-## Argumentos
+## Arguments
 
 ```
---abandon       marca a fase como abandoned em vez de completed.
-                Use quando os critérios não foram cumpridos e você
-                explicitamente decide encerrar sem verificação.
+--abandon       marks the phase as abandoned instead of completed.
+                Use when criteria were not met and you
+                explicitly decide to close without verification.
 ```
 
-## Pré-requisitos
+## Prerequisites
 
-- `.sleepwell/state.json` existe.
-- Existe exatamente uma fase com `status == "active"`.
+- `.sleepwell/state.json` exists.
+- Exactly one phase has `status == "active"`.
 
-## Comportamento (modo padrão — completed)
+## Behavior (default mode — completed)
 
-1. Lê fase ativa de `state.phases` (item com `status="active"`).
-2. Lê `PLAN.md` da fase para extrair critérios de aceite (lista
-   `- [ ] <texto>`).
-3. Coleta evidência:
-   - commits da fase: `git log <started_at>..HEAD` filtrado pela branch
-     do run;
-   - resumo de `EXECUTION.md` (passes/fails);
-   - diff acumulado: `git diff $(merge-base base started_at)..HEAD`.
-4. Avalia cada critério (raciocínio curto na sessão):
-   - marca `[x]` quando há evidência clara;
-   - mantém `[ ]` quando incompleto/ambíguo, com nota.
-5. Gera `VERIFICATION.md`:
+1. Reads active phase from `state.phases` (item with `status="active"`).
+2. Reads phase's `PLAN.md` to extract acceptance criteria (list
+   `- [ ] <text>`).
+3. Collects evidence:
+   - phase commits: `git log <started_at>..HEAD` filtered by the run's
+     branch;
+   - summary of `EXECUTION.md` (passes/fails);
+   - accumulated diff: `git diff $(merge-base base started_at)..HEAD`.
+4. Evaluates each criterion (short reasoning in the session):
+   - marks `[x]` when there is clear evidence;
+   - keeps `[ ]` when incomplete/ambiguous, with a note.
+5. Generates `VERIFICATION.md`:
    ```markdown
-   # Verificação — fase <NN>-<slug>
+   # Verification — phase <NN>-<slug>
 
-   ## Critérios
-   - [x] <critério 1> — <evidência: sha curto, arquivo, ou frase>
-   - [ ] <critério 2> — <por que ainda não>
+   ## Criteria
+   - [x] <criterion 1> — <evidence: short sha, file, or phrase>
+   - [ ] <criterion 2> — <why not yet>
 
-   ## Resumo
-   <2-3 frases>
+   ## Summary
+   <2-3 sentences>
 
    ## Commits
-   - <sha> <título>
+   - <sha> <title>
    - ...
 
-   ## Decisão
+   ## Decision
    completed | partially-completed
    ```
-6. Atualiza atomically `state.json`:
+6. Atomically updates `state.json`:
    - `status: "completed"`
    - `completed_at: "<ISO>"`
    - `verification_path: ".sleepwell/phases/<NN>-<slug>/VERIFICATION.md"`
 
-## Comportamento — `--abandon`
+## Behavior — `--abandon`
 
-- Cria `VERIFICATION.md` minimalista marcando "fase abandonada,
-  critérios não verificados".
-- `state.phases[i].status = "abandoned"`, `completed_at` setado.
+- Creates a minimal `VERIFICATION.md` marking "phase abandoned,
+  criteria not verified".
+- `state.phases[i].status = "abandoned"`, `completed_at` set.
 
 ## Output
 
 ```
-fase <NN>-<slug> fechada (completed | abandoned)
+phase <NN>-<slug> closed (completed | abandoned)
 verification: .sleepwell/phases/<NN>-<slug>/VERIFICATION.md
-critérios:    <X>/<Y> verificados
+criteria:     <X>/<Y> verified
 
-próximos passos:
-  /sleepwell-phase-start "<próxima>"   # iniciar nova fase
-  /sleepwell-recap                      # encerrar run
+next steps:
+  /sleepwell-phase-start "<next>"      # start new phase
+  /sleepwell-recap                      # close run
 ```
 
 ## Edge cases
 
-- Nenhuma fase ativa → "nenhuma fase ativa para fechar."
-- Mais de uma fase active (corrupção) → erro pedindo correção manual
-  do `state.json`.
-- Sem critérios marcáveis em `PLAN.md` → gera VERIFICATION.md com
-  "nenhum critério explícito; status = completed por decisão manual".
+- No active phase → "no active phase to close."
+- More than one active phase (corruption) → error asking for manual
+  fix to `state.json`.
+- No markable criteria in `PLAN.md` → generates VERIFICATION.md with
+  "no explicit criteria; status = completed by manual decision".
