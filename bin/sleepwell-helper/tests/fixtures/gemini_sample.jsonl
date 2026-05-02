@@ -1,0 +1,3 @@
+{"role":"user","parts":[{"text":"hello"}]}
+{"role":"model","parts":[{"text":"olá"}],"usageMetadata":{"promptTokenCount":300,"candidatesTokenCount":120,"cachedContentTokenCount":50}}
+{"role":"model","parts":[{"text":"again"}],"usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":40}}

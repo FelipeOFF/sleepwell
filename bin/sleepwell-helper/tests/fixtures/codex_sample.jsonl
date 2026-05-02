@@ -1,0 +1,4 @@
+{"role":"user","content":"hi"}
+{"role":"assistant","content":"hello there","usage":{"prompt_tokens":200,"completion_tokens":75,"cached_tokens":40}}
+{"role":"assistant","content":"more","usage":{"prompt_tokens":150,"completion_tokens":60,"cached_tokens":0}}
+malformed { not json
