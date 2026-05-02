@@ -11,6 +11,13 @@ Diferente do gnhf/overnight que rodam fora via `claude -p`, o sleepwell vive **d
 
 ## Instalação
 
+> **Standalone por design.** O fluxo core (bootstrap, iter, verify, commit,
+> rollback, ScheduleWakeup) funciona sem nenhuma skill externa instalada.
+> Skills opcionais (`superpowers:test-driven-development`, `obsidian-markdown`)
+> só melhoram a experiência em modos específicos. Veja o mapa completo em
+> [`docs/SKILLS.md`](docs/SKILLS.md) e rode `scripts/check-skill-deps.sh` para
+> auditar dependências.
+
 Como o repo já está em `~/Projects/my-claude-code-skills`, você pode:
 
 **Opção A — symlink global:**
