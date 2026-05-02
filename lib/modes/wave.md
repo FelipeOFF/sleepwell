@@ -3,7 +3,7 @@
 **Apetite:** explorar mudanças significativas com auto-crítica embutida.
 **Risco:** médio-alto — escopo de cada wave é maior que `refine`, menor que `radical`.
 
-> **Status:** experimental. Ative com `--mode wave` no `/sleepwell`. Espere
+> **Status:** experimental. Ative com `--mode wave` no `/sleepwell:sleepwell`. Espere
 > custo por iter ~3x maior (3 sub-agents em sequência). Feedback bem-vindo.
 
 ## Conceito

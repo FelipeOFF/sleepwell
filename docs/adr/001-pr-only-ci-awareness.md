@@ -21,7 +21,7 @@ e sem comprometer a higiene do repositório?
 
 1. **PR-only flow.** Toda run cria branch
    `sleepwell/auto/<run-id>` e, no finalize, abre um Pull Request via
-   `/sleepwell-pr`. Nunca há push direto em `main`.
+   `/sleepwell:sleepwell-pr`. Nunca há push direto em `main`.
 2. **CI awareness via polling no wake.** No início de cada iteração
    (após bootstrap, antes de compor o prompt), a skill
    `sleepwell-ci-monitor` chama `gh run list` para a branch ativa e
@@ -61,7 +61,7 @@ e sem comprometer a higiene do repositório?
 ## Consequences
 
 - **Complexidade adicionada.** Branch nomeada por `run-id`, comando
-  `/sleepwell-pr`, schema v3.1, skill `sleepwell-ci-monitor`,
+  `/sleepwell:sleepwell-pr`, schema v3.1, skill `sleepwell-ci-monitor`,
   sentinela em `.sleepwell/ci-status.json`.
 - **Auto-merge é server-side e opcional.** O loop apenas adiciona o
   label `sleepwell-auto-merge` quando configurado; um Action externo

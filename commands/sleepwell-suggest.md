@@ -2,7 +2,7 @@
 description: Sugere 3 planos overnight ranqueados a partir do workspace, TODOs, status e calibração.
 ---
 
-# /sleepwell-suggest
+# /sleepwell:sleepwell-suggest
 
 Inspeciona o workspace atual e propõe **3 planos overnight** ordenados por
 confiança, derivada da calibração estatística de runs anteriores.
@@ -89,12 +89,12 @@ Abaixo da tabela, para cada linha, 1 frase de justificativa:
 
 ## Sem efeitos colaterais
 
-`/sleepwell-suggest` é **read-only**. Não cria branch, não escreve em
+`/sleepwell:sleepwell-suggest` é **read-only**. Não cria branch, não escreve em
 `.sleepwell/`, não dispara loop. Apenas imprime a tabela.
 
 ## Pós-execução
 
 ```
 para iniciar plano #1:
-  /sleepwell "<intent>" --mode <mode> --max-iter <N>
+  /sleepwell:sleepwell "<intent>" --mode <mode> --max-iter <N>
 ```

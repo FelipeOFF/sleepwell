@@ -3,7 +3,7 @@ description: Retoma um loop sleepwell pausado/abortado/crashed.
 argument-hint: "[--force] [--from-iter N]"
 ---
 
-# /sleepwell-resume
+# /sleepwell:sleepwell-resume
 
 Retoma um loop existente em qualquer estado terminal (`stopped`, `aborted`,
 `running` órfão após crash) sem reiniciar do zero. Reusa a skill
@@ -22,7 +22,7 @@ Retoma um loop existente em qualquer estado terminal (`stopped`, `aborted`,
 ## Pré-condições
 
 1. `.sleepwell/state.json` deve existir. Se não existir → erro:
-   "nenhum loop sleepwell encontrado aqui. Use `/sleepwell \"<intent>\"`."
+   "nenhum loop sleepwell encontrado aqui. Use `/sleepwell:sleepwell \"<intent>\"`."
 2. Cria lock `.sleepwell/resume.lock` com `{ "ts": "<ISO>", "pid": <pid> }`
    antes de relançar a skill. Se o lock já existir e for recente (<5min),
    aborta com aviso ("possível wakeup órfão; remova o lock manualmente se
@@ -59,14 +59,14 @@ Retoma um loop existente em qualquer estado terminal (`stopped`, `aborted`,
 1. Provável `consecutive_failures >= 3`. AskUserQuestion:
    - **zerar contador e retomar** → `consecutive_failures = 0`, `status = running`,
      anota em `notes.md`, dispara `ScheduleWakeup(60s)`.
-   - **inspecionar antes** → não muda nada, sugere `/sleepwell-status` e `/sleepwell-diff`.
+   - **inspecionar antes** → não muda nada, sugere `/sleepwell:sleepwell-status` e `/sleepwell:sleepwell-diff`.
 2. Se `--force`, escolhe **zerar e retomar**.
 3. Se `abort_reason` indica `cost_budget_usd` excedido → recusa zerar contador
-   e instrui o usuário a relançar com `--max-cost` maior via novo `/sleepwell`.
+   e instrui o usuário a relançar com `--max-cost` maior via novo `/sleepwell:sleepwell`.
 
 ### `done`
 Erro: "loop já concluído. Para começar outro intent, use
-`/sleepwell \"<novo intent>\"` (state antigo será arquivado)."
+`/sleepwell:sleepwell \"<novo intent>\"` (state antigo será arquivado)."
 
 ## `--from-iter N`
 Override avançado. Seta `state.iteration = N-1` antes de relançar a skill (a
@@ -88,7 +88,7 @@ veem `status != running` e abortam sem trabalho.
 ## Exemplos
 
 ```
-/sleepwell-resume                    # caso comum: detecta state e age
-/sleepwell-resume --force            # sem perguntar, escolhe defaults seguros
-/sleepwell-resume --from-iter 5      # reentra na iter 5
+/sleepwell:sleepwell-resume                    # caso comum: detecta state e age
+/sleepwell:sleepwell-resume --force            # sem perguntar, escolhe defaults seguros
+/sleepwell:sleepwell-resume --from-iter 5      # reentra na iter 5
 ```

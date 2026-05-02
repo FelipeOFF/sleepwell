@@ -1,6 +1,6 @@
 # sleepwell — ritual completo
 
-> **Fonte autoritativa.** Este documento é a referência canônica do fluxo sleepwell. Skills (`sleepwell-loop`, `sleepwell-meta`) e comandos (`/sleepwell*`) devem **referenciar** este arquivo (`Ver lib/ritual.md §<seção>`) em vez de duplicar a lógica. Mudanças no fluxo começam aqui.
+> **Fonte autoritativa.** Este documento é a referência canônica do fluxo sleepwell. Skills (`sleepwell-loop`, `sleepwell-meta`) e comandos (`/sleepwell:sleepwell*`) devem **referenciar** este arquivo (`Ver lib/ritual.md §<seção>`) em vez de duplicar a lógica. Mudanças no fluxo começam aqui.
 
 Documentação canônica do ritual de iteração. A skill `sleepwell-loop` implementa este fluxo. Esta página existe para humanos lerem.
 
@@ -17,7 +17,7 @@ Documentação canônica do ritual de iteração. A skill `sleepwell-loop` imple
 
 ```
 [parse args]
-  /sleepwell "<intent>" --mode refine --max-iter 20
+  /sleepwell:sleepwell "<intent>" --mode refine --max-iter 20
 
 [validations]
   ✓ git repo
@@ -26,7 +26,7 @@ Documentação canônica do ritual de iteração. A skill `sleepwell-loop` imple
 
 [branch]
   slug = kebab(intent)
-  worktree path = ../<repo>-wt/sleepwell-<slug>
+  worktree path = ../<repo>-wt/sleepwell:sleepwell-<slug>
   git worktree add <path> -b sleepwell/<slug>
 
 [adaptation]
@@ -127,7 +127,7 @@ display:
   intent / mode / branch / iter / passes/fails / commits
 
 suggest next steps:
-  /sleepwell-diff
+  /sleepwell:sleepwell-diff
   git checkout main && git merge --squash <branch>
   git branch -D <branch>
 ```
@@ -183,7 +183,7 @@ sleepwell_base_branch() {
 }
 ```
 
-Usar em qualquer lugar que precise de `merge-base`, range `..`, exclusão `^<base>`. Lugares já adaptados: `skills/sleepwell-loop` (diff acumulado), `commands/sleepwell-status`, `commands/sleepwell-diff`, `skills/sleepwell-meta`.
+Usar em qualquer lugar que precise de `merge-base`, range `..`, exclusão `^<base>`. Lugares já adaptados: `skills/sleepwell:sleepwell-loop` (diff acumulado), `commands/sleepwell:sleepwell-status`, `commands/sleepwell:sleepwell-diff`, `skills/sleepwell:sleepwell-meta`.
 
 ### 7.2 Escrita atômica de state
 
@@ -353,10 +353,10 @@ A fase com `status == "active"` é a **fase em curso**. Apenas uma por vez.
 
 ### Comandos
 
-- `/sleepwell-phase-start "<slug>" [--plan <path>]` — abre nova fase.
+- `/sleepwell:sleepwell-phase-start "<slug>" [--plan <path>]` — abre nova fase.
   Cria diretório, gera `PLAN.md` (template inline), `EXECUTION.md` vazio,
   acrescenta entrada em `state.phases` com `status="active"`.
-- `/sleepwell-phase-complete [--abandon]` — fecha a fase ativa.
+- `/sleepwell:sleepwell-phase-complete [--abandon]` — fecha a fase ativa.
   Gera/preenche `VERIFICATION.md`, marca `completed_at`, status →
   `completed` (ou `abandoned` se `--abandon`).
 
@@ -376,8 +376,8 @@ estão atendidos. Se sim:
 - Apresenta ao usuário: "fase `<slug>` completa — abrir nova fase ou
   finalizar run?".
 - Em modo autônomo (sem usuário ativo), executa
-  `/sleepwell-phase-complete` automaticamente e propõe próxima fase via
-  `/sleepwell-suggest`.
+  `/sleepwell:sleepwell-phase-complete` automaticamente e propõe próxima fase via
+  `/sleepwell:sleepwell-suggest`.
 
 ### Compatibilidade
 
@@ -423,5 +423,5 @@ crashes (pid stale).
 
 Se o processo CC for derrubado no meio de uma iter:
 - `state.json` está parcialmente atualizado (o último write é atômico via tmpfile + rename).
-- Próxima invocação manual de `/sleepwell` (sem args) detecta `status == "running"` e retoma.
+- Próxima invocação manual de `/sleepwell:sleepwell` (sem args) detecta `status == "running"` e retoma.
 - Working tree pode estar sujo se a falha foi após edit mas antes de commit/reset → loop detecta diff vs HEAD na 1ª checagem da retomada e oferece: "rollback ou recuperar?".

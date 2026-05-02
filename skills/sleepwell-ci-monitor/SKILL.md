@@ -14,7 +14,7 @@ loop deve invocar fix-CI, esperar ou abortar.
 
 - Invocada por `sleepwell-loop` no início de cada wake, após bootstrap e
   antes da composição do prompt.
-- Também pode ser invocada manualmente via `/sleepwell-ci-status`.
+- Também pode ser invocada manualmente via `/sleepwell:sleepwell-ci-status`.
 
 ## 2. Pré-condição
 
@@ -128,9 +128,9 @@ Quando a skill retorna `fix`, o conteúdo de `.sleepwell/ci-failure-log.txt`
 Isso permite que a iteração seguinte raciocine sobre o erro e tente
 corrigir. O loop limpa esse arquivo após uma iteração PASS.
 
-## 7. UI no /sleepwell-status
+## 7. UI no /sleepwell:sleepwell-status
 
-Quando `state.ci_green == true`, `/sleepwell-status` mostra ✅ ao lado da
+Quando `state.ci_green == true`, `/sleepwell:sleepwell-status` mostra ✅ ao lado da
 branch. Quando o último verdict foi `failure` ou `fix`, mostra ❌ com
 link para o run.
 

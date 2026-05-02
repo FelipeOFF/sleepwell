@@ -3,7 +3,7 @@ description: TUI live com status do loop sleepwell em curso.
 argument-hint: "[--interval 3] [--tail 15]"
 ---
 
-# /sleepwell-watch
+# /sleepwell:sleepwell-watch
 
 Mostra um dashboard TUI live com o estado do loop sleepwell. Bloqueia o
 terminal até `Ctrl+C`. Read-only — não muda `state.json` nem dispara skill.
@@ -78,6 +78,6 @@ seguro — não deixa o loop em estado inconsistente.
 ## Quando usar
 
 - Acompanhar loop overnight em outro terminal/aba.
-- Confirmar progresso sem rodar `/sleepwell-status` repetidamente.
+- Confirmar progresso sem rodar `/sleepwell:sleepwell-status` repetidamente.
 - Detectar travamentos: se `iter` não muda em vários refreshs e `status =
-  running`, considere `/sleepwell-resume`.
+  running`, considere `/sleepwell:sleepwell-resume`.

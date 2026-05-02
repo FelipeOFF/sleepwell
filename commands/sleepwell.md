@@ -3,7 +3,7 @@ description: Inicia (ou retoma) o loop autônomo sleepwell. Combina disciplina g
 argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>] [--no-pr] [--draft-pr]
 ---
 
-# /sleepwell
+# /sleepwell:sleepwell
 
 Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint — ela vai bootstrapar o estado, criar a branch isolada, extrair voice profile, ler calibration, e rodar a 1ª iteração.
 
@@ -28,8 +28,8 @@ Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint 
 ```
 
 > **PR-only flow:** ao final de um run com `status == done`, o loop invoca
-> `/sleepwell-pr` automaticamente (a menos que `--no-pr` tenha sido passado).
-> Auto-merge fica desabilitado por padrão. Veja `commands/sleepwell-pr.md`.
+> `/sleepwell:sleepwell-pr` automaticamente (a menos que `--no-pr` tenha sido passado).
+> Auto-merge fica desabilitado por padrão. Veja `commands/sleepwell:sleepwell-pr.md`.
 
 Todas as flags são **persistidas no `state.json`** no bootstrap (`worktree_enabled`,
 `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`,
@@ -43,7 +43,7 @@ e `lib/ritual.md §8`.
 2. Se `.sleepwell/state.json` **existe** e `status == "running"` → retoma do ponto que parou (relança skill `sleepwell-loop`).
 3. Se `.sleepwell/state.json` **existe** e `status == "done"|"aborted"|"stopped"`:
    - Se `<intent>` foi passado → bootstrap novo (move state antigo para `.sleepwell/archive/<timestamp>/`).
-   - Senão → mostra status final e sugere `/sleepwell-status`/`/sleepwell-diff`.
+   - Senão → mostra status final e sugere `/sleepwell:sleepwell-status`/`/sleepwell:sleepwell-diff`.
 
 ## Validações antes de bootstrapar
 

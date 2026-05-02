@@ -3,7 +3,7 @@ description: Reverte a última iteração com sucesso do loop sleepwell (git res
 argument-hint: [--n N] [--keep-changes]
 ---
 
-# /sleepwell-undo
+# /sleepwell:sleepwell-undo
 
 Reverte a última iteração com sucesso da branch sleepwell.
 
@@ -31,10 +31,10 @@ Reverte a última iteração com sucesso da branch sleepwell.
    - Append em `notes.md`:
      ```
      ## undo manual — <ISO>
-     - revertidos N commits via /sleepwell-undo
+     - revertidos N commits via /sleepwell:sleepwell-undo
      - novo HEAD: <sha>
      ```
-4. Mostra estado pós-undo (chama lógica de `/sleepwell-status` no fim).
+4. Mostra estado pós-undo (chama lógica de `/sleepwell:sleepwell-status` no fim).
 
 ## Salvaguardas
 
@@ -47,4 +47,4 @@ Reverte a última iteração com sucesso da branch sleepwell.
   fi
   # sem upstream → branch local; undo é seguro. Ver lib/ritual.md §7.3.
   ```
-- Se loop está em `status == "running"`, sugere também `/sleepwell-stop` antes do undo (pra não conflitar com próximo wakeup).
+- Se loop está em `status == "running"`, sugere também `/sleepwell:sleepwell-stop` antes do undo (pra não conflitar com próximo wakeup).

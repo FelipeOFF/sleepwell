@@ -30,7 +30,13 @@ git clone https://github.com/FelipeOFF/sleepwell.git
 ln -s "$(pwd)/sleepwell" ~/.claude/plugins/sleepwell
 ```
 
-Restart Claude Code. The `/sleepwell*` commands appear.
+Restart Claude Code. The `/sleepwell:*` commands appear.
+
+> **Note on namespacing.** Claude Code namespaces every plugin command
+> under the plugin name. So the start command is `/sleepwell:sleepwell`,
+> the status command is `/sleepwell:sleepwell-status`, etc. The bare
+> `/sleepwell` (no colon) will return *Unknown command*. Use the
+> namespaced form everywhere.
 
 ### Helper binary (auto-install)
 
@@ -45,9 +51,9 @@ Windows). Already-installed binaries are kept; re-runs are a no-op.
 Manual control:
 
 ```
-/sleepwell-doctor                       # diagnose env + install if missing
-/sleepwell-doctor --reinstall           # force redownload latest
-/sleepwell-doctor --version bin-v0.5.0  # pin a specific version
+/sleepwell:sleepwell-doctor                       # diagnose env + install if missing
+/sleepwell:sleepwell-doctor --reinstall           # force redownload latest
+/sleepwell:sleepwell-doctor --version bin-v0.5.0  # pin a specific version
 ```
 
 Supported prebuilt targets:
@@ -72,19 +78,19 @@ not break the loop.
 ## Quick start
 
 ```
-/sleepwell "extract auth middleware into its own module" --mode refine --max-iter 15
+/sleepwell:sleepwell "extract auth middleware into its own module" --mode refine --max-iter 15
 ```
 
 | Command | Purpose |
 |---|---|
-| `/sleepwell "<intent>" [opts]` | Start the loop |
-| `/sleepwell-status` | Current iteration, branch, mode, recent commits, cost |
-| `/sleepwell-diff` | Accumulated diff vs base branch |
-| `/sleepwell-resume` | Resume a paused, stopped, or crashed loop |
-| `/sleepwell-watch` | Live TUI of loop progress |
-| `/sleepwell-recap` | Post-run narrative summary |
-| `/sleepwell-undo` | Revert the last successful iteration |
-| `/sleepwell-stop` | Cancel pending wakeups |
+| `/sleepwell:sleepwell "<intent>" [opts]` | Start the loop |
+| `/sleepwell:sleepwell-status` | Current iteration, branch, mode, recent commits, cost |
+| `/sleepwell:sleepwell-diff` | Accumulated diff vs base branch |
+| `/sleepwell:sleepwell-resume` | Resume a paused, stopped, or crashed loop |
+| `/sleepwell:sleepwell-watch` | Live TUI of loop progress |
+| `/sleepwell:sleepwell-recap` | Post-run narrative summary |
+| `/sleepwell:sleepwell-undo` | Revert the last successful iteration |
+| `/sleepwell:sleepwell-stop` | Cancel pending wakeups |
 
 ## Modes
 
@@ -99,7 +105,7 @@ not break the loop.
 ## Options
 
 ```
-/sleepwell "<intent>"
+/sleepwell:sleepwell "<intent>"
   --mode tidy|refine|build|radical|wave   (default: refine)
   --max-iter <N>                          (default: 20)
   --max-cost <USD>                        (abort when total cost exceeds budget)
@@ -200,9 +206,9 @@ When a run finishes (`status == done`), the loop invokes
 cost in USD, latest evaluator rating, and the commit list.
 
 ```bash
-/sleepwell "<intent>"             # default: cria PR ao final
-/sleepwell "<intent>" --no-pr     # roda mas não cria PR
-/sleepwell "<intent>" --draft-pr  # cria PR como draft
+/sleepwell:sleepwell "<intent>"             # default: cria PR ao final
+/sleepwell:sleepwell "<intent>" --no-pr     # roda mas não cria PR
+/sleepwell:sleepwell "<intent>" --draft-pr  # cria PR como draft
 ```
 
 Auto-merge is **disabled by default**. To enable conditional auto-merge,

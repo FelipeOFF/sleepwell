@@ -9,12 +9,12 @@ Skill central do plugin `sleepwell`. Executa **uma iteração** do loop autônom
 
 ## Quando ativar
 
-- Quando o usuário invoca `/sleepwell "<intent>" [opts]` (1ª iteração — bootstrap).
+- Quando o usuário invoca `/sleepwell:sleepwell "<intent>" [opts]` (1ª iteração — bootstrap).
 - Quando um `ScheduleWakeup` agendado refire este skill (iter seguinte).
 - Quando outro skill/agent solicitar continuação explícita do loop.
 
 **Não ativar** se:
-- Usuário invocou `/sleepwell-status`, `/sleepwell-diff`, `/sleepwell-stop`, `/sleepwell-undo` (esses têm seus próprios fluxos).
+- Usuário invocou `/sleepwell:sleepwell-status`, `/sleepwell:sleepwell-diff`, `/sleepwell:sleepwell-stop`, `/sleepwell:sleepwell-undo` (esses têm seus próprios fluxos).
 - Não existe `.sleepwell/state.json` E não há intent fornecido (sem âncora — abort).
 
 ## Pré-requisitos
@@ -84,12 +84,12 @@ Skill central do plugin `sleepwell`. Executa **uma iteração** do loop autônom
 
 Detecte: `.sleepwell/state.json` não existe E há `--intent "<text>"` no input.
 
-1. Parse args do `/sleepwell`: intent (ou `--intent-file <path>`), mode (default `refine`), max-iter (default 20), `--max-cost <USD>` (opcional), stop-when, dry-run, worktree (default true), no-voice, no-meta, `--no-pr` (default false: cria PR no finalize), `--draft-pr` (cria PR como draft). Todas as flags são **gravadas no `state.json`** (campos `worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`, `pr_mode` ∈ {`auto`,`none`,`draft`}) para que retomadas via `ScheduleWakeup` preservem o setup.
+1. Parse args do `/sleepwell:sleepwell`: intent (ou `--intent-file <path>`), mode (default `refine`), max-iter (default 20), `--max-cost <USD>` (opcional), stop-when, dry-run, worktree (default true), no-voice, no-meta, `--no-pr` (default false: cria PR no finalize), `--draft-pr` (cria PR como draft). Todas as flags são **gravadas no `state.json`** (campos `worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`, `pr_mode` ∈ {`auto`,`none`,`draft`}) para que retomadas via `ScheduleWakeup` preservem o setup.
 2. Slug do intent → kebab-case curto, ex: `refactor-auth-middleware`. Persistido em `state.slug` (campo separado).
 3. **Run-id:** gere identificador único `<unix-epoch>-<rand4hex>` (ex: `1714678920-a3f2`). Usado para nomear a branch, evitando colisão com slugs duplicados e garantindo PR-friendly naming.
 4. **Worktree:**
    - Branch sempre nomeada `sleepwell/auto/<run-id>` (não mais `sleepwell/<slug>`).
-   - Se `worktree=true`: cria `git worktree add ../<repo>-wt/sleepwell-auto-<run-id> -b sleepwell/auto/<run-id>` (vendored stub em `skills/vendor/git-worktrees`).
+   - Se `worktree=true`: cria `git worktree add ../<repo>-wt/sleepwell:sleepwell-auto-<run-id> -b sleepwell/auto/<run-id>` (vendored stub em `skills/vendor/git-worktrees`).
    - Senão: `git checkout -b sleepwell/auto/<run-id>` (abortar se branch existe — improvável dado o rand).
 5. **Voice profile** (se `no-voice=false`):
    - Invoque skill `sleepwell-profile`.
@@ -154,7 +154,7 @@ Pula direto para passo 2 (sem checar abort).
 
 ### 1. Load state
 
-Lê `.sleepwell/state.json`. Se ausente e sem intent → erro: peça `/sleepwell "<intent>"` antes.
+Lê `.sleepwell/state.json`. Se ausente e sem intent → erro: peça `/sleepwell:sleepwell "<intent>"` antes.
 
 ### 2. Abort checks
 
@@ -217,8 +217,8 @@ estão cumpridos (raciocínio curto sobre `PLAN.md` + diff acumulado da
 fase). Se sim:
 
 - Modo interativo: pergunta ao usuário "fase completa — abrir nova?".
-- Modo autônomo: executa `/sleepwell-phase-complete` automaticamente e
-  oferece próximas via `/sleepwell-suggest`.
+- Modo autônomo: executa `/sleepwell:sleepwell-phase-complete` automaticamente e
+  oferece próximas via `/sleepwell:sleepwell-suggest`.
 
 Ver `lib/ritual.md §9`.
 
@@ -348,7 +348,7 @@ Quando aborta ou conclui:
     `aborted`, `abort_reason="ci_mirror_failed"`, log no notes com a
     saída do bash. Se o helper não está no PATH, o gate é pulado com
     warning em notes (degradação grácil). Ver issue #37.
-3. **PR-only flow:** se `state.pr_mode != "none"` E `state.status == "done"` E há ≥1 commit na branch → invoque `/sleepwell-pr` para criar PR. Persiste URL em `state.pr_url`. Em modo `"draft"`, cria com `--draft`. Auto-merge desabilitado por default; aplicar label `sleepwell-auto-merge` manualmente liga merge condicional via Action server-side (referência apenas — não implementado neste plugin).
+3. **PR-only flow:** se `state.pr_mode != "none"` E `state.status == "done"` E há ≥1 commit na branch → invoque `/sleepwell:sleepwell-pr` para criar PR. Persiste URL em `state.pr_url`. Em modo `"draft"`, cria com `--draft`. Auto-merge desabilitado por default; aplicar label `sleepwell-auto-merge` manualmente liga merge condicional via Action server-side (referência apenas — não implementado neste plugin).
 4. Mostra ao usuário:
    ```
    sleepwell finalizado
@@ -362,7 +362,7 @@ Quando aborta ou conclui:
    tokens: ${tokens_used.input} in / ${tokens_used.output} out (cache: ${tokens_used.cache_read} read, ${tokens_used.cache_creation} write)
 
    próximos passos:
-   - revisar:  /sleepwell-diff
+   - revisar:  /sleepwell:sleepwell-diff
    - mergear:  git checkout main && git merge --squash sleepwell/<slug>
    - descartar: git branch -D sleepwell/<slug>
    ```
@@ -373,7 +373,7 @@ Quando aborta ou conclui:
 - **Branch sleepwell/<slug> já existe:** sufixo `-2`, `-3`, ...
 - **Worktree falha (espaço, etc):** cai pra modo sem worktree, avisa user em notes.md.
 - **Verify cmd não encontrado:** marca em notes.md, considera "skip" não fail.
-- **Ctrl+C/sleepwell-stop:** o slash `/sleepwell-stop` seta `state.status = "stopped"` — abort check pega na próxima iter.
+- **Ctrl+C/sleepwell:sleepwell-stop:** o slash `/sleepwell:sleepwell-stop` seta `state.status = "stopped"` — abort check pega na próxima iter.
 
 ## Skills compostas (opcional, fonte de inspiração)
 

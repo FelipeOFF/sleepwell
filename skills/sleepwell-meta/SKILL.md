@@ -121,5 +121,5 @@ Em fallback: `"meta: helper ausente, calibration textual mantida"`.
 
 ## Quando NÃO calibrar
 
-- Flag `--no-meta` no `/sleepwell` → pula completamente.
+- Flag `--no-meta` no `/sleepwell:sleepwell` → pula completamente.
 - `state.prediction_profile.calibrated_at` < 24h → reusa o existente.

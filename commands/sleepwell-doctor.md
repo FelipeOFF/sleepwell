@@ -3,7 +3,7 @@ description: Diagnostica o ambiente do sleepwell, verifica binário sleepwell-he
 argument-hint: "[--reinstall] [--version <tag>] [--dest <dir>]"
 ---
 
-# /sleepwell-doctor
+# /sleepwell:sleepwell-doctor
 
 Verifica o ambiente local e garante que o binário `sleepwell-helper` está
 instalado para a plataforma atual.

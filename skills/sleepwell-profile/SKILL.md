@@ -205,5 +205,5 @@ Loga: `voice profile: 0 mensagens, usando perfil neutro`.
 
 ## Quando NÃO extrair
 
-- Flag `--no-voice` no `/sleepwell` → pula completamente.
+- Flag `--no-voice` no `/sleepwell:sleepwell` → pula completamente.
 - Cache válido (<7 dias) e arquivo bem-formado → reusa.

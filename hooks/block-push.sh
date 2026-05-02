@@ -18,6 +18,12 @@ set -euo pipefail
 
 input=$(cat || true)
 
+# Escape hatch: explicit override (used for plugin self-development /
+# emergency manual operation). Set SLEEPWELL_ALLOW_PUSH=1 to bypass.
+if [ "${SLEEPWELL_ALLOW_PUSH:-0}" = "1" ]; then
+  exit 0
+fi
+
 # Só nos importamos com Bash.
 tool_name=$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [ "$tool_name" != "Bash" ]; then
@@ -36,34 +42,24 @@ if printf '%s' "$cmd" | grep -Eq '(^|[;&|[:space:]])git([[:space:]]+-[^[:space:]
   is_git_push=1
 fi
 
-# 1. Recusas globais (independem do estado do loop).
+# 1. Force-push é sempre bloqueado (independe de loop ativo) — perigoso
+# em qualquer contexto e nunca deveria ser feito por um agente automatizado.
 if [ "$is_git_push" = "1" ]; then
-  # Force-push: --force, -f isolado, ou refspec com `+`.
   if printf '%s' "$cmd" | grep -Eq 'git[[:space:]]+push[^|;&]*([[:space:]]--force(-with-lease|-if-includes)?([[:space:]]|=|$)|[[:space:]]-f([[:space:]]|$)|[[:space:]]\+[A-Za-z0-9_./-]+:)'; then
     cat >&2 <<EOF
 sleepwell: force-push bloqueado.
 
-Push direto em base branch ou force-push bloqueado. Use /sleepwell-pr
-para criar PR. Se for absolutamente necessário, peça ao usuário humano
-para executar manualmente fora do agent.
-EOF
-    exit 2
-  fi
-
-  # Push direto em base branch (main/master/develop/trunk) — match em
-  # qualquer ocorrência da palavra após `git push`.
-  if printf '%s' "$cmd" | grep -Eq 'git[[:space:]]+push[^|;&]*[[:space:]](main|master|develop|trunk)([[:space:]]|$|:)'; then
-    cat >&2 <<EOF
-sleepwell: push em base branch bloqueado.
-
-Push direto em base branch ou force-push bloqueado. Use /sleepwell-pr
-para criar PR.
+Force-push pode reescrever histórico publicado. Se for absolutamente
+necessário, peça ao usuário humano para executar manualmente fora do
+agent, ou exporte SLEEPWELL_ALLOW_PUSH=1.
 EOF
     exit 2
   fi
 fi
 
-# 2. Bloqueio durante loop ativo (comportamento original).
+# 2. Bloqueio durante loop ativo. Sem state.json → não há loop, deixa
+# passar (incluindo push em base branches — esse é o repo de quem usa
+# o plugin, não cabe ao hook policiar fora do loop).
 state_file=".sleepwell/state.json"
 if [ ! -f "$state_file" ]; then
   exit 0

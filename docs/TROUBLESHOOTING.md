@@ -9,7 +9,7 @@ formato **Sintomas / Diagnóstico / Remediação**.
 
 **Sintomas**
 
-- `/sleepwell-status` falha com erro de parse JSON.
+- `/sleepwell:sleepwell-status` falha com erro de parse JSON.
 - Próxima retomada do loop crasha imediatamente.
 - `cat .sleepwell/state.json` mostra JSON truncado ou caractere lixo.
 
@@ -36,7 +36,7 @@ full, ou edição manual mal feita.
 3. Se não houver archive utilizável, bootstrap fresh:
    ```bash
    mv .sleepwell/state.json .sleepwell/state.json.broken
-   /sleepwell "<intent original>" [--mode ...] [--max-iter ...]
+   /sleepwell:sleepwell "<intent original>" [--mode ...] [--max-iter ...]
    ```
 
 ---
@@ -46,7 +46,7 @@ full, ou edição manual mal feita.
 **Sintomas**
 
 - `git worktree add` falha com `<branch> is already checked out at <path>`.
-- Diretório `../<repo>-wt/sleepwell-<slug>` foi removido manualmente, mas o
+- Diretório `../<repo>-wt/sleepwell:sleepwell-<slug>` foi removido manualmente, mas o
   Git ainda registra o worktree.
 
 **Diagnóstico**
@@ -95,7 +95,7 @@ criado.
    ```bash
    rm .sleepwell/resume.lock
    ```
-3. Se vivo e duplicado, parar o loop com `/sleepwell-stop` e reiniciar.
+3. Se vivo e duplicado, parar o loop com `/sleepwell:sleepwell-stop` e reiniciar.
 
 ---
 
@@ -161,7 +161,7 @@ para `typecheck` e `test`.
 
 **Sintomas**
 
-- `/sleepwell-status` mostra `cost_so_far_usd` subindo rápido.
+- `/sleepwell:sleepwell-status` mostra `cost_so_far_usd` subindo rápido.
 - Sem `cost_budget_usd` configurado, o loop pode consumir orçamento
   indefinidamente.
 
@@ -176,11 +176,11 @@ jq '{cost_so_far_usd, cost_budget_usd, max_cost_per_iter_usd}' \
 
 1. **Habilitar `--max-cost`** no próximo bootstrap:
    ```
-   /sleepwell "<intent>" --max-cost 5
+   /sleepwell:sleepwell "<intent>" --max-cost 5
    ```
 2. **Habilitar `--max-cost-per-iter`** para guardrail por iter:
    ```
-   /sleepwell "<intent>" --max-cost 5 --max-cost-per-iter 0.50
+   /sleepwell:sleepwell "<intent>" --max-cost 5 --max-cost-per-iter 0.50
    ```
 3. Em loop ativo, atualizar o budget direto no state:
    ```bash
@@ -209,9 +209,9 @@ impede push para evitar publicar trabalho ainda não validado.
 
 1. Pare o loop antes de pushar:
    ```
-   /sleepwell-stop
+   /sleepwell:sleepwell-stop
    ```
-2. Confirme `status == "stopped"` em `/sleepwell-status`.
+2. Confirme `status == "stopped"` em `/sleepwell:sleepwell-status`.
 3. Faça o push normalmente.
 
 Se você precisa pushar com o loop ainda ativo (ex.: hotfix paralelo em outra

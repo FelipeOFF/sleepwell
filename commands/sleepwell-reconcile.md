@@ -2,7 +2,7 @@
 description: Reconcilia outcomes de runs anteriores (merged/partial/discarded) via git branch --merged.
 ---
 
-# /sleepwell-reconcile
+# /sleepwell:sleepwell-reconcile
 
 Marca, retroativamente, o **outcome** de cada run sleepwell já arquivada,
 inspecionando se a branch `sleepwell/<slug>` foi de fato integrada à base.
