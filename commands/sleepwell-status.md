@@ -26,6 +26,12 @@ iniciado: <state.started_at>
 última:   <state.last_iter_at>
 stop-when: <state.stop_when or "—">
 
+# Telemetria (se presentes em state.json — ver skill sleepwell-telemetry).
+custo:    <state.cost_so_far_usd> USD (budget: <state.cost_budget_usd or "—">)
+tokens:   in=<state.tokens_used.input> out=<state.tokens_used.output>
+          cache_read=<state.tokens_used.cache_read>
+          cache_creation=<state.tokens_used.cache_creation>
+
 últimos commits da branch:
 $(BASE=$(sleepwell_base_branch); git log --oneline -5 <state.branch> ^"$BASE" 2>/dev/null)
 # `sleepwell_base_branch` detecta main/master/develop — ver lib/ritual.md §7.1.

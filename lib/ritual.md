@@ -80,6 +80,15 @@ Documentação canônica do ritual de iteração. A skill `sleepwell-loop` imple
     state.total_fails++
     delay = min(270, 60 * 2^failures)
 
+[telemetry]
+  invoke skill `sleepwell-telemetry`
+  → atualiza state.tokens_used e state.cost_so_far_usd
+
+[abort por custo?]
+  if state.cost_budget_usd != null and
+     state.cost_so_far_usd  >= state.cost_budget_usd
+     → finalize("cost", abort_reason="cost budget reached")
+
 [update]
   state.iteration++
   state.last_iter_at = now
