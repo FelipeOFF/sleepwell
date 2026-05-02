@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/FelipeOFF/sleepwell/state-schema.json",
   "title": "sleepwell state",
-  "description": "Estado persistente do loop sleepwell. Vive em .sleepwell/state.json no repo onde o loop roda. Schema v3: adiciona campos opcionais (context_threshold_pct, phases). Migration: states v1/v2 carregam normalmente; novos campos assumem defaults. Ver lib/ritual.md §8 para detalhes.",
+  "description": "Estado persistente do loop sleepwell. Vive em .sleepwell/state.json no repo onde o loop roda. Schema v3.1: adiciona campos opcionais para circuit breaker de CI (ci_attempts, max_ci_attempts_per_branch, max_actions_minutes_per_run, max_actions_cost_usd) além de v3 (context_threshold_pct, phases). Migration: states v1/v2/v3 carregam normalmente; novos campos assumem defaults. Ver lib/ritual.md §8 para detalhes.",
   "type": "object",
   "required": [
     "version",
@@ -47,7 +47,22 @@
     "branch": {
       "type": "string",
       "pattern": "^sleepwell/.+",
-      "description": "Branch isolada do loop."
+      "description": "Branch isolada do loop. v3+: sempre `sleepwell/auto/<run-id>` em runs novas; runs legados podem manter `sleepwell/<slug>`."
+    },
+    "run_id": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Identificador único do run (`<unix-epoch>-<rand4hex>`). Usado para nomear branch e evitar colisões. v3, opcional (runs antigos não têm)."
+    },
+    "pr_url": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "URL do PR criado via /sleepwell-pr ao final do run. v3, opcional."
+    },
+    "pr_mode": {
+      "enum": ["auto", "none", "draft"],
+      "default": "auto",
+      "description": "Modo de criação de PR no finalize. `auto` = cria PR ao final (default); `none` = nunca cria (--no-pr); `draft` = cria como draft (--draft-pr). v3."
     },
     "worktree_enabled": {
       "type": "boolean",
@@ -235,6 +250,39 @@
       },
       "required": ["rating", "observation", "course_correct", "evaluated_at"],
       "additionalProperties": true
+    },
+    "ci_attempts": {
+      "type": "object",
+      "description": "Circuit breaker de CI: tentativas de fix por branch. Chave = nome da branch; valor = contador e métricas. v3.1.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["count", "first_attempt_at"],
+        "properties": {
+          "count":                  { "type": "integer", "minimum": 0 },
+          "first_attempt_at":       { "type": "string", "format": "date-time" },
+          "last_run_id":            { "type": "integer", "minimum": 0 },
+          "actions_minutes_spent":  { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "max_ci_attempts_per_branch": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3,
+      "description": "Limite de tentativas de fix-CI por branch antes de abortar com motivo ci_attempts_exceeded. v3.1."
+    },
+    "max_actions_minutes_per_run": {
+      "type": "number",
+      "minimum": 0,
+      "default": 60,
+      "description": "Teto de minutos de GitHub Actions consumidos por run. v3.1."
+    },
+    "max_actions_cost_usd": {
+      "type": "number",
+      "minimum": 0,
+      "default": 5.0,
+      "description": "Teto de custo em USD de GitHub Actions consumidos por run. v3.1."
     },
     "prediction_profile": {
       "type": ["object", "null"],
