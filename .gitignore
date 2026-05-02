@@ -100,3 +100,7 @@ scratch/
 
 # Rust
 bin/sleepwell-helper/target/
+
+# Rust
+target/
+
