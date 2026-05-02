@@ -32,6 +32,11 @@ tokens:   in=<state.tokens_used.input> out=<state.tokens_used.output>
           cache_read=<state.tokens_used.cache_read>
           cache_creation=<state.tokens_used.cache_creation>
 
+# Calibração (se presente — ver skill sleepwell-meta v2).
+overall:    <state.prediction_profile.overall * 100>% (n=<state.prediction_profile.n_runs>)
+trusted:    <state.prediction_profile.trusted | join(", ") or "—">
+distrusted: <state.prediction_profile.distrusted | join(", ") or "—">
+
 últimos commits da branch:
 $(BASE=$(sleepwell_base_branch); git log --oneline -5 <state.branch> ^"$BASE" 2>/dev/null)
 # `sleepwell_base_branch` detecta main/master/develop — ver lib/ritual.md §7.1.

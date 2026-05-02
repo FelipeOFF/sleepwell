@@ -1,78 +1,120 @@
 ---
 name: sleepwell-meta
-description: Use no bootstrap do sleepwell-loop para gerar uma calibração baseada nos runs anteriores — quais commits foram mantidos vs descartados, e quais padrões o usuário endossou. Persiste em .sleepwell/calibration.md.
+description: Use no bootstrap do sleepwell-loop para gerar uma calibração baseada nos runs anteriores. Versão v2 consome `sleepwell-helper calibrate` e persiste prediction_profile em state.json; fallback grácil mantém calibration.md textual antigo.
 ---
 
-# sleepwell-meta
+# sleepwell-meta (v2)
 
-Meta-learning leve do sleepwell. Antes de uma nova run, lê o histórico das runs anteriores (branches `sleepwell/*` + main desde a última run) e infere insights sobre o que o usuário tende a manter.
+Meta-learning leve do sleepwell. No bootstrap (e por pedido explícito), lê o
+histórico de runs sleepwell anteriores e produz **dois artefatos**:
+
+1. **`state.prediction_profile`** (estruturado, v3) — consumido pelo
+   `sleepwell-loop` para influenciar o prompt das iters.
+2. **`.sleepwell/calibration.md`** (textual, legado) — mantido como fallback
+   humano-legível quando o helper Rust não está disponível.
 
 ## Quando ativar
 
 - Bootstrap do `sleepwell-loop` (1ª iter), se `--no-meta` não for passado.
 - Pedido explícito do usuário: "atualiza calibration".
 
-## Algoritmo
+## Pipeline preferencial — `sleepwell-helper calibrate`
 
-1. **Localizar branches sleepwell anteriores:**
-   ```bash
-   git for-each-ref --format='%(refname:short) %(committerdate:iso)' refs/heads/sleepwell/* | sort -k2 -r | head -5
-   ```
-   Pega as 5 últimas branches sleepwell (ou todas se <5).
-
-2. **Para cada branch sleepwell anterior** (use o helper `sleepwell_base_branch` para detectar a base — `main` / `master` / `develop`; ver `lib/ritual.md §7.1`):
-   - Lista commits da branch que NÃO estão na base:
-     ```bash
-     BASE=$(sleepwell_base_branch)
-     git log --oneline <branch>..$BASE  # o que foi pra base
-     git log --oneline $BASE..<branch>  # o que ficou só na branch
-     ```
-   - Classifica:
-     - **Cherry-picked/merged na base** → usuário aprovou.
-     - **Ficou na branch** → não foi aprovado (descartado, abandonado, ou pendente).
-     - **Squash merge:** detecta via mensagem `[sleepwell-iter:N]` no log da base.
-
-3. **Categoriza commits** pelo tipo (do `<type>` do conventional commit) e pelo conteúdo:
-   - feat / refactor / fix / chore / test / docs.
-   - Padrões textuais no diff: renames, novas abstrações, deletes, cobertura de testes, etc.
-
-4. **Sumariza padrões** em `.sleepwell/calibration.md`:
-
-```markdown
-# Calibration — extraída em <ISO>
-_Baseada em <N> runs sleepwell anteriores._
-
-## Sinal positivo (mantenha fazendo)
-- <pattern> — <evidência: "branch X iter 3 foi merged"> — confiança <high|med|low>
-- ...
-
-## Sinal negativo (evite)
-- <pattern> — <evidência: "branch Y iter 5 ficou na branch e foi descartada">
-- ...
-
-## Volatilidade
-- <quanto o usuário muda de ideia entre runs>
-- <iterações típicas até convergir>
-
-## Recomendações para próxima run
-- <ação concreta>
+```bash
+if command -v sleepwell-helper >/dev/null 2>&1; then
+  profile_json=$(sleepwell-helper calibrate \
+    --archive .sleepwell/archive/ \
+    --repo .)
+fi
 ```
 
-5. **Limites:**
-   - Se <2 runs anteriores: gera calibration mínima ("histórico insuficiente, sem ajustes").
-   - Se runs muito antigas (>60 dias): pondera com peso menor.
-   - Não invente padrões sem evidência.
+Saída esperada (JSON em stdout, salvo em `state.prediction_profile`):
+
+```json
+{
+  "overall": 0.72,
+  "by_category": {
+    "feat":    0.81,
+    "fix":     0.65,
+    "refactor":0.50,
+    "tidy":    0.90,
+    "refine":  0.74,
+    "build":   0.60
+  },
+  "trusted":   ["tidy", "feat"],
+  "distrusted":["radical", "refactor"],
+  "n_runs": 12,
+  "calibrated_at": "2026-05-02T15:42:00-03:00"
+}
+```
+
+`overall` = % de commits aprovados pelo usuário (mantidos na base, não
+descartados). `by_category` quebra por mode e/ou conventional type.
+`trusted`/`distrusted` saem do top/bottom de `by_category` (threshold default
+≥0.75 trusted, ≤0.55 distrusted).
+
+## Persistência atômica
+
+```bash
+tmp=$(mktemp .sleepwell/state.json.XXXXXX)
+jq --argjson p "$profile_json" '.prediction_profile = $p' \
+   .sleepwell/state.json > "$tmp"
+mv "$tmp" .sleepwell/state.json
+```
+
+Ver `lib/ritual.md §7.2`.
+
+## Injeção no prompt do loop
+
+A cada iter, o `sleepwell-loop` consulta `state.prediction_profile` e injeta
+no prompt:
+
+- Se `state.mode in trusted` → adiciona linha:
+  `## Calibração\n- Mode "<mode>" tem histórico positivo (acurácia <X>%, n=<N>).
+  Encoraja-se profundidade.`
+- Se `state.mode in distrusted` → adiciona linha:
+  `## Calibração\n- Mode "<mode>" tem histórico negativo (acurácia <X>%, n=<N>).
+  Cautela: prefira diff pequeno e reversível.`
+- Se `state.mode` não está em nenhum → omite seção (sinal insuficiente).
+
+## Fallback grácil — sem helper
+
+Quando `command -v sleepwell-helper` falha:
+
+1. **NÃO** tenta replicar parsing de git log em bash (a versão v1 fazia isso
+   via grep — removida nesta v2 por ser frágil e duplicar lógica do helper).
+2. Mantém o comportamento textual legado em `.sleepwell/calibration.md`:
+   - Se já existir `.sleepwell/calibration.md` (de run anterior), só lê e
+     repassa para o caller.
+   - Se ausente, cria uma versão mínima:
+     ```markdown
+     # Calibration — extraída em <ISO>
+     _sleepwell-helper indisponível; calibration estruturada pulada._
+
+     Sem sinais por categoria. Loop opera sem ajuste de profile.
+     ```
+3. **NÃO** escreve `state.prediction_profile` quando em fallback (deixa o campo
+   ausente — o loop trata ausência como neutro).
+
+Logue `meta: helper ausente, prediction_profile pulado` no notes.md.
+
+## Limites e edge cases
+
+- Sem `.sleepwell/archive/` ou repo recém-iniciado: helper retorna
+  `n_runs: 0`; persiste o profile mesmo assim, e o loop trata `n_runs < 3`
+  como "sem sinal" (não injeta).
+- Runs muito antigas (>60 dias): o helper já pondera com peso menor; a skill
+  apenas confia no output.
+- Privacidade: tudo local. Nada sai do disco.
 
 ## Output curto pro caller
 
-Retorne uma string de 1-2 linhas: `"calibration: N runs prévias, X padrões positivos, Y negativos"` para o `sleepwell-loop` mostrar no boot.
+Após persistir, retorne uma string de 1 linha:
+`"meta: prediction_profile atualizado (overall=X%, n=N, trusted=[...], distrusted=[...])"`.
 
-## Privacidade
+Em fallback: `"meta: helper ausente, calibration textual mantida"`.
 
-- Calibration é derivada SOMENTE do git log local. Não envia nada externo.
-- Não inclua nomes de arquivos sensíveis (segredos, credenciais).
+## Quando NÃO calibrar
 
-## Quando NÃO criar calibration
-
-- Repo recém-iniciado, sem branches sleepwell anteriores → escreve calibration vazia com header.
 - Flag `--no-meta` no `/sleepwell` → pula completamente.
+- `state.prediction_profile.calibrated_at` < 24h → reusa o existente.
