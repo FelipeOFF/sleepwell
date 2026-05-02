@@ -5,6 +5,11 @@ description: Use no bootstrap do sleepwell-loop para gerar uma calibração base
 
 # sleepwell-meta (v2)
 
+> **Lockfile guard.** Antes de operar, checa `.sleepwell/ci-lock`: se
+> existe e contém pid vivo DIFERENTE do pid atual, recusa
+> (`sleepwell-meta: lock owned by pid <X>`). Se ausente ou pid morto,
+> ok. Ver `lib/ritual.md §10`.
+
 Meta-learning leve do sleepwell. No bootstrap (e por pedido explícito), lê o
 histórico de runs sleepwell anteriores e produz **dois artefatos**:
 

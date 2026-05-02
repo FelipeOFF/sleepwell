@@ -51,6 +51,16 @@ Documentação canônica do ritual de iteração. A skill `sleepwell-loop` imple
   if state.consecutive_failures >= 3 → finalize("3 fails seguidas")
   if state.stop_when and evaluate(state.stop_when, notes, last_diff) → finalize("stop-when met")
 
+[ci-monitor]
+  invoke skill `sleepwell-ci-monitor`   # logo após bootstrap/abort, ANTES do prompt
+  → persiste sentinela em .sleepwell/ci-status.json
+  → verdict ∈ {no_ci, green, pending, wait_long, external_failure, fix,
+                ci_attempts_exceeded, actions_minutes_exceeded,
+                actions_cost_exceeded}
+  → pending/wait_long: skip iter, ScheduleWakeup com delay maior
+  → fix: injeta .sleepwell/ci-failure-log.txt no prompt
+  → ci_attempts_exceeded / actions_*_exceeded: finalize com abort_reason
+
 [prompt]
   intent + voice_profile + calibration + mode_template + tail(notes) + git diff --stat
 
@@ -269,6 +279,37 @@ matar o loop inteiro — pode ser uma iter outlier. Mas falhas seguidas (3
 caras em sequência) caem no abort de `consecutive_failures >= 3` e cortam
 naturalmente.
 
+#### Cost guardrails de CI (v3.1)
+
+Além dos limites de cost de inferência, o loop respeita teto de consumo de
+GitHub Actions:
+
+- `state.max_actions_minutes_per_run` (default 60) — teto de minutos de
+  Actions agregados em todas as branches do run.
+- `state.max_actions_cost_usd` (default 5.0) — teto em USD do consumo de
+  Actions agregado.
+- `state.max_ci_attempts_per_branch` (default 3) — limite de tentativas de
+  fix-CI por branch antes do abort.
+
+A skill `sleepwell-ci-monitor` consolida essas métricas em
+`state.ci_attempts[<branch>]`. Abort gates adicionais ao §3:
+
+```
+if state.ci_attempts[branch].count >= state.max_ci_attempts_per_branch
+   → finalize("ci_attempts_exceeded",
+              abort_reason="ci_attempts_exceeded:<branch>")
+if Σ state.ci_attempts[*].actions_minutes_spent >= state.max_actions_minutes_per_run
+   → finalize("actions_minutes_exceeded")
+if (cost estimado de Actions) >= state.max_actions_cost_usd
+   → finalize("actions_cost_exceeded")
+```
+
+Detecção de **falha externa** (secret expirado/missing, DNS,
+registry 5xx, runner offline, outage do GitHub) NÃO incrementa
+`ci_attempts[branch].count`: o monitor classifica como
+`external_failure`, registra em notes e re-agenda iter com backoff longo
+(600s) em vez de invocar fix.
+
 ## 9. Sub-fases internas (`.sleepwell/phases/`)
 
 Um run sleepwell pode ser decomposto em **sub-fases** — blocos lógicos de
@@ -345,7 +386,40 @@ estão atendidos. Se sim:
 - Comandos de status/recap/diff existentes não precisam mudar; apenas
   ganham informação extra quando `state.phases` existe.
 
-## 10. Recuperação de falhas catastróficas
+## 10. Lockfile de concorrência (`.sleepwell/ci-lock`)
+
+Para evitar duas instâncias do loop pisando no mesmo `state.json`, o
+bootstrap (§2) cria um lockfile `.sleepwell/ci-lock` com payload JSON:
+
+```json
+{ "pid": 12345, "started_at": "<ISO>", "hostname": "<host>" }
+```
+
+### Regras
+
+- **Criação:** antes de criar o lock, checa se o arquivo existe.
+  - Se existe e contém `pid` vivo (`kill -0 $pid 2>/dev/null` em unix;
+    `tasklist /FI "PID eq $pid"` em windows) → recusa: mensagem
+    `lock owned by pid <X> @ <hostname> (started_at <ISO>)`.
+  - Se existe e o `pid` está morto → considera lock stale e sobrescreve.
+  - Se ausente → cria via tmpfile + rename (atômico, ver §7.2).
+- **Verificação por skills auxiliares.** As skills `sleepwell-evaluator`,
+  `sleepwell-meta`, `sleepwell-ci-monitor` e `sleepwell-telemetry`
+  checam o lock antes de operar:
+  - Lock ausente → ok (foram invocadas fora de um run, ou o run morreu).
+  - Lock vivo de outro pid → recusa.
+  - Lock vivo do pid atual → ok.
+- **Liberação.** O lock é removido no §4 finalize (success ou abort)
+  apenas pelo dono (pid no arquivo == pid atual). Liberação tardia em
+  caso de crash: a próxima invocação detecta pid morto e sobrescreve.
+
+### Racional
+
+`state.json` é fonte da verdade; concorrência produz writes intercalados
+e corrupção. O lockfile é leve, sem daemon, e degrada gracefully em
+crashes (pid stale).
+
+## 11. Recuperação de falhas catastróficas
 
 Se o processo CC for derrubado no meio de uma iter:
 - `state.json` está parcialmente atualizado (o último write é atômico via tmpfile + rename).

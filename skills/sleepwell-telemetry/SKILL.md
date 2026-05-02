@@ -5,6 +5,11 @@ description: v2 — coleta tokens/custo via sleepwell-helper (Rust) com detecç�
 
 # sleepwell-telemetry (v2)
 
+> **Lockfile guard.** Antes de operar, checa `.sleepwell/ci-lock`: se
+> existe e contém pid vivo DIFERENTE do pid atual, recusa
+> (`sleepwell-telemetry: lock owned by pid <X>`). Se ausente ou pid morto,
+> ok. Ver `lib/ritual.md §10`.
+
 Coleta telemetria de uso (tokens consumidos, custo derivado em USD) do
 runtime ativo onde o loop sleepwell está rodando. Atualiza
 `.sleepwell/state.json` ao final de cada iteração — antes do abort gate de

@@ -5,6 +5,11 @@ description: Avalia heuristicamente cada iteração via sleepwell-helper evaluat
 
 # sleepwell-evaluator
 
+> **Lockfile guard.** Antes de operar, checa `.sleepwell/ci-lock`: se
+> existe e contém pid vivo DIFERENTE do pid atual, recusa
+> (`sleepwell-evaluator: lock owned by pid <X>`). Se ausente ou pid morto,
+> ok. Ver `lib/ritual.md §10`.
+
 Avaliação heurística leve por iteração. Roda **após o verify e antes/junto da telemetria** (ver `lib/ritual.md §3`). Produz um rating curto (1–5), uma observação textual e um booleano `course_correct` indicando se a próxima iter deve ajustar o curso.
 
 A skill **coleta** sinais. A decisão de escalar (trocar de modo, abortar) fica no `sleepwell-loop` baseada no que está persistido em `state.last_eval`.
