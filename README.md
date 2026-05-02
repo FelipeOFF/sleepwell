@@ -1,5 +1,7 @@
 # sleepwell
 
+> **Languages:** [English](README.md) · [Português (Brasil)](README.pt-BR.md)
+
 Autonomous overnight loop for Claude Code. Disciplined iteration (isolated branch, atomic commit per iteration, automatic rollback on failure) combined with adaptive behavior (4 operating modes, optional voice matching, cross-run meta-learning).
 
 Unlike external `claude -p` wrappers, sleepwell runs **inside** an active Claude Code session — keeping the prompt cache hot, MCP servers alive, and skills composable across iterations.
