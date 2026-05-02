@@ -251,6 +251,22 @@
       "required": ["rating", "observation", "course_correct", "evaluated_at"],
       "additionalProperties": true
     },
+    "ci_green": {
+      "type": "boolean",
+      "default": false,
+      "description": "Última verificação da skill sleepwell-ci-monitor retornou conclusion=success. Atualizado em cada wake. v3.1."
+    },
+    "ci_waiting_iters": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Iterações consecutivas em que o ci-monitor retornou pending. Se >5 → loop entra em wait_long (sleep maior no ScheduleWakeup). Reset a 0 ao green/fix. v3.1."
+    },
+    "last_push_sha": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "SHA do último commit pushado pela skill sleepwell-loop. Usado pelo ci-monitor para validar que o run de CI corresponde ao commit certo (headSha == last_push_sha). v3.1."
+    },
     "ci_attempts": {
       "type": "object",
       "description": "Circuit breaker de CI: tentativas de fix por branch. Chave = nome da branch; valor = contador e métricas. v3.1.",
