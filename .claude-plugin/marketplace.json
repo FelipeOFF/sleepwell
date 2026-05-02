@@ -7,7 +7,10 @@
   "plugins": [
     {
       "name": "sleepwell",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "FelipeOFF/sleepwell"
+      },
       "description": "Autonomous overnight loop for Claude Code: disciplined iteration (isolated branch, atomic commits, rollback) plus adaptive behavior (5 modes, voice matching, meta-learning, cost telemetry).",
       "version": "0.6.0",
       "category": "automation",
