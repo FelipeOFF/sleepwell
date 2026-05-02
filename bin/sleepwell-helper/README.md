@@ -51,4 +51,19 @@ warning em stderr.
 ## CI
 
 `.github/workflows/release.yml` builda 5 alvos a cada tag `bin-v*` e publica os
-artefatos no GitHub Release correspondente.
+artefatos no GitHub Release correspondente:
+
+- `x86_64-apple-darwin`
+- `aarch64-apple-darwin`
+- `x86_64-unknown-linux-gnu`
+- `aarch64-unknown-linux-gnu` (via `cross`)
+- `x86_64-pc-windows-msvc`
+
+Cache via `Swatinem/rust-cache@v2`; upload via
+`softprops/action-gh-release@v2`.
+
+## Tracking
+
+- skeleton + CI multi-target — issue **#16**
+- `parse-jsonl` multi-LLM — issue **#17**
+- `cost` com `prices.toml` — issue **#18**
