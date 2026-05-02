@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/FelipeOFF/sleepwell/state-schema.json",
   "title": "sleepwell state",
-  "description": "Estado persistente do loop sleepwell. Vive em .sleepwell/state.json no repo onde o loop roda.",
+  "description": "Estado persistente do loop sleepwell. Vive em .sleepwell/state.json no repo onde o loop roda. Schema v2: campos novos opcionais permitem evolução sem quebrar runs antigas (v1). Migration: states v1 carregam normalmente; novos campos assumem defaults. Ver lib/ritual.md §8 para detalhes.",
   "type": "object",
   "required": [
     "version",
@@ -18,17 +18,22 @@
     "started_at",
     "status"
   ],
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "version": {
       "type": "integer",
-      "const": 1,
-      "description": "Versão do schema. Hoje 1."
+      "enum": [1, 2],
+      "description": "Versão do schema. v1 = legado, v2 = atual (default em novas runs). v1 ainda é aceito para retomadas."
     },
     "intent": {
       "type": "string",
       "minLength": 1,
       "description": "Frase original do usuário."
+    },
+    "intent_file": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Caminho para arquivo de intent longo (alternativa a string inline). v2."
     },
     "slug": {
       "type": "string",
@@ -43,6 +48,11 @@
       "type": "string",
       "pattern": "^sleepwell/.+",
       "description": "Branch isolada do loop."
+    },
+    "worktree_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Flag persistida do CLI (--no-worktree → false). v2."
     },
     "worktree_path": {
       "type": ["string", "null"],
@@ -65,6 +75,16 @@
     "dry_run": {
       "type": "boolean",
       "default": false
+    },
+    "no_voice": {
+      "type": "boolean",
+      "default": false,
+      "description": "Flag persistida do CLI (--no-voice). Pula extração de voice profile. v2."
+    },
+    "no_meta": {
+      "type": "boolean",
+      "default": false,
+      "description": "Flag persistida do CLI (--no-meta). Pula meta-calibration. v2."
     },
     "consecutive_failures": {
       "type": "integer",
@@ -96,13 +116,54 @@
     },
     "verify_cmds": {
       "type": "object",
-      "description": "Comandos de verificação. 'auto' = detectar.",
+      "description": "Comandos de verificação. Cada campo aceita um comando shell ou o sentinel literal \"auto\" (loop detecta no boot).",
       "properties": {
-        "lint": { "type": "string" },
-        "typecheck": { "type": "string" },
-        "test": { "type": "string" }
+        "lint": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "const": "auto" }
+          ],
+          "description": "Comando de lint, ou \"auto\" para detecção automática."
+        },
+        "typecheck": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "const": "auto" }
+          ],
+          "description": "Comando de type-check, ou \"auto\"."
+        },
+        "test": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "const": "auto" }
+          ],
+          "description": "Comando de testes, ou \"auto\"."
+        }
       },
       "additionalProperties": false
+    },
+    "tokens_used": {
+      "type": "object",
+      "description": "Acumulado de tokens consumidos pelo loop. v2.",
+      "properties": {
+        "input":          { "type": "integer", "minimum": 0, "default": 0 },
+        "output":         { "type": "integer", "minimum": 0, "default": 0 },
+        "cache_read":     { "type": "integer", "minimum": 0, "default": 0 },
+        "cache_creation": { "type": "integer", "minimum": 0, "default": 0 }
+      },
+      "additionalProperties": false
+    },
+    "cost_so_far_usd": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0,
+      "description": "Custo acumulado em USD (derivado de tokens_used). v2."
+    },
+    "cost_budget_usd": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "default": null,
+      "description": "Orçamento configurado via --max-cost <USD>. Quando cost_so_far_usd >= cost_budget_usd → abort. v2."
     },
     "voice_profile_at": {
       "type": ["string", "null"],

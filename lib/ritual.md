@@ -166,7 +166,32 @@ fi
 
 Branches sleepwell são locais por default, então normalmente o guard pula o check.
 
-## 8. Recuperação de falhas catastróficas
+## 8. State schema v2 — migration
+
+O `state-schema.json` foi bumpado para `version: 2`. Os campos novos são todos opcionais — runs antigas (`version: 1`) seguem compatíveis e podem ser retomadas sem alteração. Campos novos persistidos do CLI:
+
+- `worktree_enabled` (boolean, default true) — espelha `--no-worktree`.
+- `no_voice` / `no_meta` (boolean, default false) — flags do CLI persistidas.
+- `intent_file` (string|null) — alternativa a intent inline.
+- `tokens_used` `{input, output, cache_read, cache_creation}` — telemetria.
+- `cost_so_far_usd` (number, default 0) — custo acumulado.
+- `cost_budget_usd` (number|null) — orçamento via `--max-cost <USD>`.
+
+O `verify_cmds.{lint,typecheck,test}` agora aceita explicitamente o sentinel literal `"auto"` (oneOf string|"auto"), além de comando shell.
+
+`additionalProperties` na raiz é `true` (sub-objetos críticos como `verify_cmds` mantêm `false`) — permite evolução do schema sem quebrar parsing.
+
+### 8.1 Abort gate de custo
+
+Adicione ao §3 abort checks:
+
+```
+if state.cost_budget_usd != null and
+   state.cost_so_far_usd  >= state.cost_budget_usd
+   → finalize("cost", abort_reason="cost budget reached")
+```
+
+## 9. Recuperação de falhas catastróficas
 
 Se o processo CC for derrubado no meio de uma iter:
 - `state.json` está parcialmente atualizado (o último write é atômico via tmpfile + rename).

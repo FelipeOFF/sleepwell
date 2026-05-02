@@ -1,6 +1,6 @@
 ---
 description: Inicia (ou retoma) o loop autônomo sleepwell. Combina disciplina gnhf (branch isolada, commit atômico, rollback em fail) com adaptação overnight (voice matching, modos, meta-learning). Roda dentro da sessão CC com cache quente entre iterações.
-argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta]
+argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>]
 ---
 
 # /sleepwell
@@ -11,14 +11,21 @@ Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint 
 
 ```
 <intent>                        primeira string entre aspas — obrigatório no bootstrap
---mode tidy|refine|build|radical    default: refine
---max-iter <N>                       default: 20
---stop-when "<condição NL>"          opcional
---dry-run                            opcional (não commita)
---no-worktree                        opcional (default: usa worktree)
---no-voice                           opcional
---no-meta                            opcional
+--intent-file <path>                  opcional, alternativa para intent longo (lê arquivo)
+--mode tidy|refine|build|radical      default: refine
+--max-iter <N>                        default: 20
+--max-cost <USD>                      opcional, orçamento máximo em USD (abort gate)
+--stop-when "<condição NL>"           opcional
+--dry-run                             opcional (não commita)
+--no-worktree                         opcional (default: usa worktree)
+--no-voice                            opcional
+--no-meta                             opcional
 ```
+
+Todas as flags são **persistidas no `state.json`** no bootstrap (`worktree_enabled`,
+`no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`) — assim retomadas via
+`ScheduleWakeup` preservam o setup escolhido. Ver `lib/state-schema.json` (v2)
+e `lib/ritual.md §8`.
 
 ## Comportamento
 

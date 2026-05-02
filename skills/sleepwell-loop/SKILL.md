@@ -82,7 +82,7 @@ Skill central do plugin `sleepwell`. Executa **uma iteração** do loop autônom
 
 Detecte: `.sleepwell/state.json` não existe E há `--intent "<text>"` no input.
 
-1. Parse args do `/sleepwell`: intent, mode (default `refine`), max-iter (default 20), stop-when, dry-run, worktree (default true), no-voice, no-meta.
+1. Parse args do `/sleepwell`: intent (ou `--intent-file <path>`), mode (default `refine`), max-iter (default 20), `--max-cost <USD>` (opcional), stop-when, dry-run, worktree (default true), no-voice, no-meta. Todas as flags são **gravadas no `state.json`** (campos `worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`) para que retomadas via `ScheduleWakeup` preservem o setup.
 2. Slug do intent → kebab-case curto, ex: `refactor-auth-middleware`.
 3. **Worktree:**
    - Se `worktree=true`: usa skill `superpowers:using-git-worktrees` ou cria `git worktree add ../<repo>-wt/sleepwell-<slug> -b sleepwell/<slug>`.
@@ -93,19 +93,23 @@ Detecte: `.sleepwell/state.json` não existe E há `--intent "<text>"` no input.
 5. **Meta-calibration** (se `no-meta=false`):
    - Invoque skill `sleepwell-meta`.
    - Resultado em `.sleepwell/calibration.md`.
-6. Cria `.sleepwell/state.json` (schema em `lib/state-schema.json`):
+6. Cria `.sleepwell/state.json` (schema em `lib/state-schema.json`, version `2`):
    ```json
    {
-     "version": 1,
+     "version": 2,
      "intent": "<frase do user>",
+     "intent_file": null,
      "slug": "<kebab-case>",
      "mode": "refine",
      "branch": "sleepwell/<slug>",
+     "worktree_enabled": true,
      "worktree_path": "<abs path ou null>",
      "iteration": 0,
      "max_iter": 20,
      "stop_when": null,
      "dry_run": false,
+     "no_voice": false,
+     "no_meta": false,
      "consecutive_failures": 0,
      "total_passes": 0,
      "total_fails": 0,
@@ -116,10 +120,17 @@ Detecte: `.sleepwell/state.json` não existe E há `--intent "<text>"` no input.
        "lint": "auto",
        "typecheck": "auto",
        "test": "auto"
-     }
+     },
+     "tokens_used": {
+       "input": 0, "output": 0,
+       "cache_read": 0, "cache_creation": 0
+     },
+     "cost_so_far_usd": 0,
+     "cost_budget_usd": null
    }
    ```
    - `verify_cmds.lint = "auto"` → detecta no momento (npm/pnpm/bun script `lint`, `ruff`, `eslint`, `golangci-lint`, etc).
+   - `cost_budget_usd` (de `--max-cost <USD>`) gera abort gate (ver `lib/ritual.md §8.1`).
 7. Cria `.sleepwell/notes.md` com header.
 8. Adiciona `.sleepwell/` ao `.gitignore` se ainda não estiver.
 
@@ -136,6 +147,7 @@ Lê `.sleepwell/state.json`. Se ausente e sem intent → erro: peça `/sleepwell
 - `state.consecutive_failures >= 3` → finalize "3 falhas seguidas".
 - `state.stop_when != null`:
   - Avalie: leia `notes.md` + último diff + condição NL. Decida (curto raciocínio) se atingida. Se sim → finalize "stop-when met".
+- `state.cost_budget_usd != null && state.cost_so_far_usd >= state.cost_budget_usd` → finalize "cost budget reached" (ver `lib/ritual.md §8.1`).
 
 Em finalize: escrever resumo em notes.md, atualizar `state.status = "done"|"aborted"`, mostrar para o usuário status final + comando para revisar diff.
 
@@ -222,7 +234,9 @@ Tempo limite por comando: 5min. Se travar, considera fail.
 
 ### 7. Update state
 
-Escreva state.json novo (incluindo `last_iter_at`, `iteration++`).
+Escreva state.json novo (incluindo `last_iter_at`, `iteration++`). Atualize também os campos de telemetria v2: incremente `tokens_used.{input,output,cache_read,cache_creation}` e recalcule `cost_so_far_usd` a partir do consumo da iteração. Nunca mexa nas flags persistidas (`worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`) — elas são imutáveis após o bootstrap.
+
+Use escrita atômica (tmpfile + rename) para evitar corromper o state em caso de crash.
 
 ### 8. Continuar ou parar
 
@@ -247,6 +261,8 @@ Quando aborta ou conclui:
    branch: sleepwell/<slug>
    iters:  ${total_passes} pass / ${total_fails} fail
    commits: ${git log sleepwell/<slug> ^$(sleepwell_base_branch) --oneline | wc -l}
+   custo:  $${cost_so_far_usd} USD${cost_budget_usd:+ / $cost_budget_usd USD orçados}
+   tokens: ${tokens_used.input} in / ${tokens_used.output} out (cache: ${tokens_used.cache_read} read, ${tokens_used.cache_creation} write)
 
    próximos passos:
    - revisar:  /sleepwell-diff
