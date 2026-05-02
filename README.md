@@ -166,6 +166,8 @@ Inspired by prior overnight-agent work in the community: branch-isolated loops w
 
 Issues and pull requests welcome. The loop, schema, and ritual are documented in [`lib/ritual.md`](lib/ritual.md) (the authoritative source). Run `scripts/check-skill-deps.sh` to audit external skill references before opening a PR.
 
+## Credits — see [NOTICE.md](NOTICE.md) and [CREDITS.md](CREDITS.md).
+
 ## License
 
 MIT
