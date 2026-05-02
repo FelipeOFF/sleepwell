@@ -1,163 +1,209 @@
 ---
 name: sleepwell-profile
-description: Use para extrair ou atualizar o voice profile do usuário a partir dos transcripts JSONL do Claude Code. Produz um sumário curto (~500 tokens) sobre tom, vocabulário, idioma e padrões de pedido, cacheado em .sleepwell/voice-profile.md. Re-extrai se cache >7 dias.
+description: Use para extrair ou atualizar o voice profile estruturado do usuário a partir dos transcripts JSONL do runtime ativo (claude/codex/gemini). Persiste JSON em .sleepwell/voice-profile.json. Cache 7 dias. Sem dependências externas — só bash + jq.
 ---
 
-# sleepwell-profile
+# sleepwell-profile (estruturado)
 
-Extrai um **voice profile** do usuário lendo os transcripts JSONL do Claude Code do projeto atual. O profile é injetado nas iterações do `sleepwell-loop` para que as mudanças soem como o próprio usuário escreveria — não como output genérico de assistente.
+Extrai um **voice profile estruturado** do usuário lendo os transcripts JSONL
+do runtime ativo (Claude Code, Codex CLI ou Gemini CLI). O profile é injetado
+nas iterações do `sleepwell-loop` para que as mudanças soem como o próprio
+usuário escreveria.
+
+A skill é **standalone**: usa apenas `bash` + `jq`, sem chamar outras skills
+nem APIs externas.
 
 ## Quando ativar
 
 - Bootstrap do `sleepwell-loop` (1ª iter), se `--no-voice` não for passado.
-- Cache `.sleepwell/voice-profile.md` ausente OU mais antigo que 7 dias (mtime).
-- Usuário pediu explicitamente: "atualiza o voice profile do sleepwell".
+- Cache `.sleepwell/voice-profile.json` ausente OU mais antigo que 7 dias.
+- Pedido explícito: "atualiza o voice profile do sleepwell".
 
-## Algoritmo
+## Schema do profile (`.sleepwell/voice-profile.json`)
 
-1. **Localizar transcripts:**
-   - Path padrão: `~/.claude/projects/<project-slug>/*.jsonl`.
-   - `<project-slug>` = transformação do absolute path do repo: barras viram hífens, sem leading slash.
-     - Ex: `/Users/felipeoliveira/Projects/my-claude-code-skills` → `-Users-felipeoliveira-Projects-my-claude-code-skills`.
-   - Comando: `ls -t ~/.claude/projects/<slug>/*.jsonl 2>/dev/null | head -10` (10 sessões mais recentes).
-
-2. **Extrair mensagens do user:**
-   - Cada linha JSONL é um evento. Filtre `type == "user_message"` ou similar.
-   - Extraia campo `content`/`text` da mensagem do role `user`.
-   - **Ignore** mensagens curtas (<20 chars) ou que sejam apenas comandos (`/foo`, `git ...`).
-   - Limite total: 50 mensagens mais recentes não-triviais (truque: leia até atingir 50 ou esgotar arquivos).
-
-3. **Filtrar para sinal:**
-   - Remova system reminders, hooks, tool results, `<system-reminder>` blocks.
-   - Mantenha o que o usuário REALMENTE escreveu.
-
-4. **Sumarizar em ~500 tokens** com seções fixas:
-
-```markdown
-# Voice Profile — <usuário, se identificável>
-_Extraído em <ISO date> de <N> mensagens recentes._
-
-## Idioma
-<idioma dominante, mistura de idiomas, code-switching>
-
-## Tom
-<formal/informal, direto/explicativo, técnico/conversacional>
-
-## Vocabulário recorrente
-<termos técnicos preferidos, jargões, marcas de identidade>
-
-## Padrões de pedido
-<como abre tarefas: "faça X", "to pensando em X", "explica Y", etc>
-<como dá feedback: corrige direto / explica antes / questiona>
-
-## Anti-padrões (o que NÃO fazer)
-<inferir do que ele corrige: emojis, redundância, etc>
-
-## Exemplos curtos
-- "<frase real ou parafraseada>"
-- "<outra>"
-- "<outra>"
+```json
+{
+  "tone": "direct|warm|terse|verbose|mixed",
+  "message_length": "short|medium|long",
+  "linguistic_patterns": [
+    "uses 'pls' regularly",
+    "PT-BR misturado com termos técnicos em inglês",
+    "cita arquivo:linha estilo grep"
+  ],
+  "values_and_priorities": [
+    "pragmatismo",
+    "type-safety",
+    "testes verdes antes de merge"
+  ],
+  "vocabulary_examples": [
+    "worktree",
+    "commit atômico",
+    "verde",
+    "rebase limpo"
+  ],
+  "extracted_at": "2026-05-02T15:42:00-03:00",
+  "source_runtime": "claude|codex|gemini",
+  "n_messages_analyzed": 47
+}
 ```
 
-5. **Persistir** em `<repo-do-cliente>/.sleepwell/voice-profile.md`.
+## Detecção de runtime
 
-6. **Retornar** um resumo de 1 linha pra quem invocou: `"voice profile extraído de N msgs, idioma X, tom Y"`.
+```bash
+detect_runtime() {
+  if [ -n "${CLAUDE_CODE_VERSION:-}" ] || [ -d "$HOME/.claude/projects" ]; then
+    echo claude
+  elif command -v codex >/dev/null 2>&1 && [ -d "$HOME/.codex/sessions" ]; then
+    echo codex
+  elif command -v gemini >/dev/null 2>&1 && [ -d "$HOME/.gemini" ]; then
+    echo gemini
+  else
+    echo unknown
+  fi
+}
+```
 
-## Fallback
+## Extração de mensagens — bash + jq
 
-- Sem JSONLs / projeto não encontrado: retorne profile genérico:
-  ```markdown
-  # Voice Profile — fallback
-  Sem histórico disponível. Use defaults: PT-BR, tom direto, sem emojis,
-  termos técnicos em inglês, identificadores em inglês.
-  ```
-- Pasta `~/.claude/projects/` não existe: mesmo fallback.
+Diretórios por runtime:
+
+| runtime | path                                        |
+|---------|---------------------------------------------|
+| claude  | `~/.claude/projects/<slug>/*.jsonl`         |
+| codex   | `~/.codex/sessions/*.jsonl`                 |
+| gemini  | `~/.gemini/sessions/*.jsonl` (se existir)   |
+
+`<slug>` para claude = `pwd | sed 's@/@-@g'`.
+
+Pipeline tolerante (suporta content como string OU array de blocks):
+
+```bash
+RUNTIME=$(detect_runtime)
+case "$RUNTIME" in
+  claude) DIR="$HOME/.claude/projects/$(pwd | sed 's@/@-@g')" ;;
+  codex)  DIR="$HOME/.codex/sessions" ;;
+  gemini) DIR="$HOME/.gemini/sessions" ;;
+  *)      DIR="" ;;
+esac
+
+extract_user_msgs() {
+  local dir="$1"
+  [ -d "$dir" ] || return 0
+  ls -t "$dir"/*.jsonl 2>/dev/null | head -10 | while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      printf '%s\n' "$line" | jq -r '
+        try (
+          select(.type=="user" or .role=="user")
+          | (.message.content // .content // .message // empty)
+          | if   type == "string" then .
+            elif type == "array"  then
+              (map(select(.type=="text") | .text) | join(" "))
+            else empty end
+        ) catch empty
+      ' 2>/dev/null
+    done < "$f"
+  done | grep -v '^/' | grep -v '^<system-reminder>' | awk 'length > 20' | head -50
+}
+
+MSGS=$(extract_user_msgs "$DIR")
+N=$(printf '%s\n' "$MSGS" | grep -c .)
+```
+
+## Agregação heurística
+
+Sobre `MSGS`, infira:
+
+- **`tone`**: presença de "pls/por favor", emojis, verbosidade média.
+  - <80 chars/msg → `terse`; 80–250 → `direct`; >250 → `verbose`.
+  - Predominância de imperativos ("faça", "corrige") → `direct`.
+- **`message_length`**: média de palavras por msg → `short` (<25), `medium`
+  (25–80), `long` (>80).
+- **`linguistic_patterns`**: tokens recorrentes (top-N por contagem,
+  dedupe) — gírias, marcadores de identidade, code-switching PT-BR/EN.
+- **`values_and_priorities`**: extraia frases-marca (ex.: "verde",
+  "type-safety", "atômico"). Manual heuristic; até 5 itens.
+- **`vocabulary_examples`**: até 6 termos técnicos recorrentes.
+
+## Persistência atômica
+
+```bash
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+profile=$(jq -n \
+  --arg tone "$tone" \
+  --arg ml "$message_length" \
+  --argjson lp "$linguistic_patterns_json" \
+  --argjson vp "$values_json" \
+  --argjson ve "$vocab_json" \
+  --arg ts "$ts" \
+  --arg rt "$RUNTIME" \
+  --argjson n "$N" \
+  '{tone:$tone, message_length:$ml, linguistic_patterns:$lp,
+    values_and_priorities:$vp, vocabulary_examples:$ve,
+    extracted_at:$ts, source_runtime:$rt, n_messages_analyzed:$n}')
+
+mkdir -p .sleepwell
+tmp=$(mktemp .sleepwell/voice-profile.json.XXXXXX)
+printf '%s\n' "$profile" > "$tmp"
+mv "$tmp" .sleepwell/voice-profile.json
+```
+
+## Cache (7 dias)
+
+```bash
+CACHE=.sleepwell/voice-profile.json
+if [ -f "$CACHE" ]; then
+  age=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || stat -c %Y "$CACHE") ))
+  if [ "$age" -lt 604800 ]; then
+    echo "voice profile cache hit ($(($age/86400))d)"
+    exit 0
+  fi
+fi
+# Re-extrai…
+```
+
+## Injeção no prompt (loop)
+
+A cada iter, o `sleepwell-loop` adiciona ao prompt seções nominais lidas do
+JSON:
+
+```markdown
+## Voice profile
+- Tone: <tone>
+- Message length: <message_length>
+- Patterns: <linguistic_patterns | join(", ")>
+- Values: <values_and_priorities | join(", ")>
+- Vocab: <vocabulary_examples | join(", ")>
+```
+
+## Fallback — 0 mensagens encontradas
+
+Se `N == 0` (sem JSONLs, runtime desconhecido, ou pasta vazia), persistir um
+profile **neutro** default em vez de pular:
+
+```json
+{
+  "tone": "direct",
+  "message_length": "medium",
+  "linguistic_patterns": [],
+  "values_and_priorities": ["pragmatismo"],
+  "vocabulary_examples": [],
+  "extracted_at": "<ISO>",
+  "source_runtime": "unknown",
+  "n_messages_analyzed": 0
+}
+```
+
+Loga: `voice profile: 0 mensagens, usando perfil neutro`.
 
 ## Privacidade
 
-- **Não** inclua segredos, paths privados, ou conteúdo sensível no profile.
-- **Não** envie o profile para fora do disco local.
-- O profile cacheado deve ser legível por humano e revisável.
+- 100% local. Nada sai do disco.
+- Não inclua segredos ou paths privados em `linguistic_patterns` ou
+  `vocabulary_examples`.
 
-## Implementação prática
+## Quando NÃO extrair
 
-Comando shell sugerido (Bash) para coletar mensagens. O parser é
-**tolerante a falhas**: linhas malformadas (JSON quebrado, truncado) são
-puladas silenciosamente em vez de derrubar o pipeline; e suporta
-`content` tanto como string (formato antigo) quanto como array de blocks
-`[{type:"text", text:"..."}, ...]` (formato atual do CC). Filtra tanto
-`type=="user"` quanto `role=="user"` porque diferentes versões do CC
-emitem em formatos distintos.
-
-```bash
-PROJ_SLUG=$(pwd | sed 's|/|-|g')
-JSONL_DIR=~/.claude/projects/${PROJ_SLUG}
-
-ls -t "${JSONL_DIR}"/*.jsonl 2>/dev/null | head -10 | \
-while IFS= read -r f; do
-  [ -f "$f" ] || continue
-  while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    printf '%s\n' "$line" | jq -r '
-      try (
-        select(.type=="user" or .role=="user")
-        | (.message.content // .content // .message // empty)
-        | if   type == "string" then .
-          elif type == "array"  then
-            (map(select(.type=="text") | .text) | join(" "))
-          else empty end
-      ) catch empty
-    ' 2>/dev/null
-  done < "$f"
-done | \
-  grep -v '^/' | \
-  grep -v '^<system-reminder>' | \
-  awk 'length > 20' | \
-  head -50
-```
-
-Depois sumarize com seu próprio raciocínio (não chame outro modelo).
-
-### Teste manual
-
-Para validar o pipeline em qualquer máquina:
-
-```bash
-# 1. Cria um JSONL sintético com mistura de formatos válidos e quebrados.
-mkdir -p /tmp/sw-voice-test
-cat > /tmp/sw-voice-test/sample.jsonl <<'EOF'
-{"type":"user","message":{"content":"primeira mensagem em formato string longa o suficiente"}}
-{"type":"user","message":{"content":[{"type":"text","text":"segunda mensagem em formato array de blocks com texto longo"},{"type":"tool_use","id":"x"}]}}
-linha quebrada que não é JSON
-{"type":"assistant","message":{"content":"deve ser ignorada"}}
-{"role":"user","content":"terceira via role=user também válida e suficientemente longa"}
-{"type":"user"
-EOF
-
-# 2. Roda o pipeline apontando para o sample.
-cat /tmp/sw-voice-test/sample.jsonl | \
-while IFS= read -r line; do
-  [ -n "$line" ] || continue
-  printf '%s\n' "$line" | jq -r '
-    try (
-      select(.type=="user" or .role=="user")
-      | (.message.content // .content // .message // empty)
-      | if   type == "string" then .
-        elif type == "array"  then
-          (map(select(.type=="text") | .text) | join(" "))
-        else empty end
-    ) catch empty
-  ' 2>/dev/null
-done | awk 'length > 20'
-```
-
-Esperado: as 3 mensagens válidas (string, array, role=user) saem; a
-linha não-JSON e o JSON truncado são silenciosamente pulados; a
-mensagem do assistant é filtrada.
-
-## Quando re-extrair
-
-- Cache `.sleepwell/voice-profile.md` mtime >7 dias.
-- Usuário rodou `/sleepwell` em projeto novo (slug diferente).
-- Usuário pediu explicitamente.
-- Bootstrap detecta voice profile vazio ou malformado.
+- Flag `--no-voice` no `/sleepwell` → pula completamente.
+- Cache válido (<7 dias) e arquivo bem-formado → reusa.
