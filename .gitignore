@@ -97,3 +97,6 @@ TODO.local.md
 NOTES.local.md
 scratch/
 .local/
+
+# Rust
+bin/sleepwell-helper/target/

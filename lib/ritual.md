@@ -80,6 +80,12 @@ Documentação canônica do ritual de iteração. A skill `sleepwell-loop` imple
     state.total_fails++
     delay = min(270, 60 * 2^failures)
 
+[evaluate]
+  invoke skill `sleepwell-evaluator`
+  → atualiza state.last_eval = {rating, observation, course_correct, evaluated_at}
+  → próxima iter injeta `## Avaliação anterior` no prompt
+  → 2× course_correct consecutivos: escala mode (refine→tidy) ou pede abort
+
 [telemetry]
   invoke skill `sleepwell-telemetry`
   → atualiza state.tokens_used e state.cost_so_far_usd
@@ -189,9 +195,13 @@ fi
 
 Branches sleepwell são locais por default, então normalmente o guard pula o check.
 
-## 8. State schema v2 — migration
+## 8. State schema v3 — migration
 
-O `state-schema.json` foi bumpado para `version: 2`. Os campos novos são todos opcionais — runs antigas (`version: 1`) seguem compatíveis e podem ser retomadas sem alteração. Campos novos persistidos do CLI:
+O `state-schema.json` foi bumpado para `version: 3`. Os campos novos (v3) são
+todos opcionais — runs antigas (`version: 1` ou `version: 2`) seguem
+compatíveis e podem ser retomadas sem alteração.
+
+### v2 (já existentes)
 
 - `worktree_enabled` (boolean, default true) — espelha `--no-worktree`.
 - `no_voice` / `no_meta` (boolean, default false) — flags do CLI persistidas.
@@ -199,6 +209,21 @@ O `state-schema.json` foi bumpado para `version: 2`. Os campos novos são todos 
 - `tokens_used` `{input, output, cache_read, cache_creation}` — telemetria.
 - `cost_so_far_usd` (number, default 0) — custo acumulado.
 - `cost_budget_usd` (number|null) — orçamento via `--max-cost <USD>`.
+
+### v3 (novos)
+
+- `last_eval` `{rating, observation, course_correct, evaluated_at}` — saída
+  da skill `sleepwell-evaluator`. Opcional; ausente em runs v1/v2.
+- `prediction_profile` `{overall, by_category, trusted, distrusted, n_runs,
+  calibrated_at}` — saída de `sleepwell-helper calibrate`, consumido pela
+  skill `sleepwell-meta`. Opcional.
+- `context_threshold_pct` (integer, default 80) — pressão de contexto para
+  poda automática.
+- `phases` (array) — sub-fases internas do run.
+
+Migration v2 → v3: nada a fazer. Runs antigas continuam abrindo; o loop
+adiciona os novos campos quando as skills correspondentes rodam pela primeira
+vez na run retomada.
 
 O `verify_cmds.{lint,typecheck,test}` agora aceita explicitamente o sentinel literal `"auto"` (oneOf string|"auto"), além de comando shell.
 

@@ -1,0 +1,88 @@
+name: Release sleepwell-helper
+
+on:
+  push:
+    tags:
+      - "bin-v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            os: macos-13
+            use_cross: false
+            ext: ""
+          - target: aarch64-apple-darwin
+            os: macos-14
+            use_cross: false
+            ext: ""
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: false
+            ext: ""
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: true
+            ext: ""
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            use_cross: false
+            ext: ".exe"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bin/sleepwell-helper -> target
+
+      - name: Install cross
+        if: matrix.use_cross == true
+        run: cargo install cross --locked
+
+      - name: Build (cargo)
+        if: matrix.use_cross == false
+        working-directory: bin/sleepwell-helper
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build (cross)
+        if: matrix.use_cross == true
+        working-directory: bin/sleepwell-helper
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Package artifact
+        shell: bash
+        working-directory: bin/sleepwell-helper
+        run: |
+          BIN="sleepwell-helper${{ matrix.ext }}"
+          OUT_DIR="dist/${{ matrix.target }}"
+          mkdir -p "$OUT_DIR"
+          cp "target/${{ matrix.target }}/release/$BIN" "$OUT_DIR/"
+          cd dist
+          if [[ "${{ matrix.target }}" == *windows* ]]; then
+            7z a "sleepwell-helper-${{ matrix.target }}.zip" "${{ matrix.target }}/$BIN"
+          else
+            tar czf "sleepwell-helper-${{ matrix.target }}.tar.gz" -C "${{ matrix.target }}" "$BIN"
+          fi
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/bin-v')
+        with:
+          files: |
+            bin/sleepwell-helper/dist/sleepwell-helper-${{ matrix.target }}.tar.gz
+            bin/sleepwell-helper/dist/sleepwell-helper-${{ matrix.target }}.zip
+          fail_on_unmatched_files: false
