@@ -1,26 +1,26 @@
 ---
 name: sleepwell-telemetry
-description: v2 — coleta tokens/custo via sleepwell-helper (Rust) com detecção multi-LLM (claude/codex/gemini); fallback bash+jq quando o helper não está disponível. Atualiza state.tokens_used, state.cost_so_far_usd e dispara abort gate de custo.
+description: v2 — collects tokens/cost via sleepwell-helper (Rust) with multi-LLM detection (claude/codex/gemini); bash+jq fallback when the helper is unavailable. Updates state.tokens_used, state.cost_so_far_usd and triggers the cost abort gate.
 ---
 
 # sleepwell-telemetry (v2)
 
-> **Lockfile guard.** Antes de operar, checa `.sleepwell/ci-lock`: se
-> existe e contém pid vivo DIFERENTE do pid atual, recusa
-> (`sleepwell-telemetry: lock owned by pid <X>`). Se ausente ou pid morto,
-> ok. Ver `lib/ritual.md §10`.
+> **Lockfile guard.** Before operating, check `.sleepwell/ci-lock`: if it
+> exists and contains a live pid DIFFERENT from the current pid, refuse
+> (`sleepwell-telemetry: lock owned by pid <X>`). If absent or pid is dead,
+> ok. See `lib/ritual.md §10`.
 
-Coleta telemetria de uso (tokens consumidos, custo derivado em USD) do
-runtime ativo onde o loop sleepwell está rodando. Atualiza
-`.sleepwell/state.json` ao final de cada iteração — antes do abort gate de
-custo (`§8.1` em `lib/ritual.md`).
+Collects usage telemetry (tokens consumed, cost derived in USD) from the
+active runtime where the sleepwell loop is running. Updates
+`.sleepwell/state.json` at the end of each iteration — before the cost
+abort gate (`§8.1` in `lib/ritual.md`).
 
-Saída persistida no state:
+State output:
 
-- `state.tokens_used.{input, output, cache_read, cache_creation}` (acumulado)
-- `state.cost_so_far_usd` (acumulado, calculado a partir dos tokens)
+- `state.tokens_used.{input, output, cache_read, cache_creation}` (cumulative)
+- `state.cost_so_far_usd` (cumulative, computed from tokens)
 
-## Detecção de runtime
+## Runtime detection
 
 ```bash
 detect_runtime() {
@@ -36,9 +36,9 @@ detect_runtime() {
 }
 ```
 
-Em ambiente híbrido, prefere Claude se `CLAUDE_CODE_VERSION` estiver presente.
+In a hybrid environment, prefers Claude when `CLAUDE_CODE_VERSION` is present.
 
-## Localização do JSONL ativo (mais recente em mtime)
+## Locating the active JSONL (most recent by mtime)
 
 ```bash
 case "$RUNTIME" in
@@ -53,9 +53,9 @@ esac
 JSONL=$(ls -t "$DIR"/*.jsonl 2>/dev/null | head -1)
 ```
 
-## Pipeline preferencial — `sleepwell-helper`
+## Preferred pipeline — `sleepwell-helper`
 
-Quando o binário Rust está disponível, delega o parsing e cálculo:
+When the Rust binary is available, delegate parsing and computation:
 
 ```bash
 MODEL=$(jq -r '.model // "claude-sonnet-4-5"' .sleepwell/state.json)
@@ -67,17 +67,17 @@ if command -v sleepwell-helper >/dev/null 2>&1 && [ -n "$JSONL" ]; then
 fi
 ```
 
-`parse-jsonl` extrai `usage` por turn no formato detectado; `cost` aplica a
-tabela de preços do helper (mantida em `bin/sleepwell-helper/prices.toml`).
+`parse-jsonl` extracts `usage` per turn in the detected format; `cost` applies
+the helper's pricing table (kept in `bin/sleepwell-helper/prices.toml`).
 
 ## Fallback — bash + jq
 
-Quando `command -v sleepwell-helper` falha, emite warning visível e usa o
-parsing inline (o legado v1):
+When `command -v sleepwell-helper` fails, emit a visible warning and use
+inline parsing (legacy v1):
 
 ```bash
 if ! command -v sleepwell-helper >/dev/null 2>&1; then
-  echo "warning: sleepwell-helper indisponível — usando parser bash legado" >&2
+  echo "warning: sleepwell-helper unavailable — using legacy bash parser" >&2
 
   sum_tokens() {
     jq -s '
@@ -103,11 +103,11 @@ if ! command -v sleepwell-helper >/dev/null 2>&1; then
   elif [ "$RUNTIME" = "gemini" ] && [ -n "$JSONL" ]; then
     tokens=$(jq -c '.message // .' "$JSONL" 2>/dev/null | sum_tokens)
   else
-    echo "telemetry: runtime desconhecido, pulando" >&2
+    echo "telemetry: unknown runtime, skipping" >&2
     exit 0
   fi
 
-  # Pricing default (Sonnet 4.5). Ver bin/sleepwell-helper/prices.toml.
+  # Default pricing (Sonnet 4.5). See bin/sleepwell-helper/prices.toml.
   P_IN=3 P_OUT=15 P_CR=0.30 P_CC=3.75
   cost=$(jq -n \
     --argjson t "$tokens" \
@@ -120,7 +120,7 @@ if ! command -v sleepwell-helper >/dev/null 2>&1; then
 fi
 ```
 
-## Escrita atômica do state
+## Atomic state write
 
 ```bash
 tokens=$(printf '%s\n' "$result" | jq '.tokens_used')
@@ -133,11 +133,11 @@ jq --argjson tu "$tokens" --argjson cost "$cost" \
 mv "$tmp" .sleepwell/state.json
 ```
 
-Ver `lib/ritual.md §7.2`.
+See `lib/ritual.md §7.2`.
 
-## Abort gate de custo
+## Cost abort gate
 
-Após atualizar o state, o loop avalia (ver `lib/ritual.md §8.1`):
+After updating the state, the loop evaluates (see `lib/ritual.md §8.1`):
 
 ```
 if state.cost_budget_usd != null and
@@ -145,22 +145,22 @@ if state.cost_budget_usd != null and
    → finalize("cost", abort_reason="cost budget reached")
 ```
 
-A skill **coleta**. A decisão de abortar fica no `sleepwell-loop`. Quando a
-skill detecta `cost_so_far_usd >= cost_budget_usd`, **deve** sinalizar via
-exit code != 0 + mensagem stderr, para que o loop trate o abort gate sem
-ambiguidade.
+The skill **collects**. The decision to abort lives in `sleepwell-loop`. When the
+skill detects `cost_so_far_usd >= cost_budget_usd`, it **must** signal via
+non-zero exit code + stderr message, so the loop handles the abort gate
+unambiguously.
 
-## Tabela de preços
+## Pricing table
 
-Para o pipeline preferencial, a tabela vive em
-`bin/sleepwell-helper/prices.toml` (atualizar lá quando preços mudarem). O
-fallback usa defaults inline para Sonnet 4.5; revisar trimestralmente.
+For the preferred pipeline, the table lives in
+`bin/sleepwell-helper/prices.toml` (update there when prices change). The
+fallback uses inline defaults for Sonnet 4.5; review quarterly.
 
-| Modelo                     | input | output | cache_read | cache_creation |
-|----------------------------|-------|--------|------------|----------------|
-| Claude Sonnet 4.5          | 3.00  | 15.00  | 0.30       | 3.75           |
-| Claude Haiku 4.5           | 1.00  | 5.00   | 0.10       | 1.25           |
-| GPT-5 / Codex (placeholder)| 0     | 0      | 0          | 0              |
-| Gemini 2.5 Pro (placeholder)| 0    | 0      | 0          | 0              |
+| Model                       | input | output | cache_read | cache_creation |
+|-----------------------------|-------|--------|------------|----------------|
+| Claude Sonnet 4.5           | 3.00  | 15.00  | 0.30       | 3.75           |
+| Claude Haiku 4.5            | 1.00  | 5.00   | 0.10       | 1.25           |
+| GPT-5 / Codex (placeholder) | 0     | 0      | 0          | 0              |
+| Gemini 2.5 Pro (placeholder)| 0     | 0      | 0          | 0              |
 
-Modelos não mapeados → custo 0 + warning `unknown=true`.
+Unmapped models → cost 0 + warning `unknown=true`.

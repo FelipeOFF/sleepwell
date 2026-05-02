@@ -1,94 +1,94 @@
 ---
-description: Retoma um loop sleepwell pausado/abortado/crashed.
+description: Resumes a paused/aborted/crashed sleepwell loop.
 argument-hint: "[--force] [--from-iter N]"
 ---
 
 # /sleepwell:sleepwell-resume
 
-Retoma um loop existente em qualquer estado terminal (`stopped`, `aborted`,
-`running` órfão após crash) sem reiniciar do zero. Reusa a skill
-`sleepwell-loop` — não cria fluxo paralelo.
+Resumes an existing loop in any terminal state (`stopped`, `aborted`,
+orphaned `running` after crash) without restarting from scratch. Reuses the
+`sleepwell-loop` skill — does not create a parallel flow.
 
-> Ver `lib/ritual.md` §2 (bootstrap) e §3 (iteração). Esta entrada apenas
-> normaliza o `state.json` e chama a skill no ponto certo.
+> See `lib/ritual.md` §2 (bootstrap) and §3 (iteration). This entrypoint only
+> normalizes `state.json` and calls the skill at the right point.
 
-## Argumentos
+## Arguments
 
 ```
---force                  pula AskUserQuestion em casos ambíguos (assume default seguro)
---from-iter <N>          força reentrada na iteração N (raro; padrão é manter state.iteration)
+--force                  skips AskUserQuestion in ambiguous cases (assumes safe default)
+--from-iter <N>          forces re-entry at iteration N (rare; default keeps state.iteration)
 ```
 
-## Pré-condições
+## Preconditions
 
-1. `.sleepwell/state.json` deve existir. Se não existir → erro:
-   "nenhum loop sleepwell encontrado aqui. Use `/sleepwell:sleepwell \"<intent>\"`."
-2. Cria lock `.sleepwell/resume.lock` com `{ "ts": "<ISO>", "pid": <pid> }`
-   antes de relançar a skill. Se o lock já existir e for recente (<5min),
-   aborta com aviso ("possível wakeup órfão; remova o lock manualmente se
-   souber que não há outro loop ativo"). O lock é removido pelo
-   `sleepwell-loop` ao iniciar a próxima iteração de fato.
+1. `.sleepwell/state.json` must exist. If it does not → error:
+   "no sleepwell loop found here. Use `/sleepwell:sleepwell \"<intent>\"`."
+2. Creates lock `.sleepwell/resume.lock` with `{ "ts": "<ISO>", "pid": <pid> }`
+   before relaunching the skill. If the lock already exists and is recent (<5min),
+   aborts with a warning ("possible orphaned wakeup; remove the lock manually if
+   you know there is no other active loop"). The lock is removed by
+   `sleepwell-loop` when starting the next iteration.
 
-## Comportamento por `state.status`
+## Behavior by `state.status`
 
-### `running` (crash mid-iter)
-1. Assume crash entre `started_at` da iter e o commit final.
-2. Roda `git status -s` no worktree (ou repo raiz se `worktree_enabled=false`).
-3. Se sujo → `AskUserQuestion`:
-   - **rollback** → `git checkout -- .` + `git clean -fd`, decrementa nada (a iter
-     ainda não tinha incrementado), e dispara skill na iter atual.
-   - **preservar WIP** → faz `git stash push -m "sleepwell-resume-wip <ISO>"`,
-     anota o stash em `notes.md`, e dispara skill.
-   - **abortar** → seta `status: aborted`, `abort_reason: "crash mid-iter, usuário abortou"`.
-4. Se `--force`, escolhe **rollback** silenciosamente.
-5. Reusa `sleepwell-loop` na **iter atual sem incrementar** (`iteration` fica
-   como está; a skill detecta retomada via lock + status).
+### `running` (mid-iter crash)
+1. Assumes a crash between the iter's `started_at` and the final commit.
+2. Runs `git status -s` in the worktree (or repo root if `worktree_enabled=false`).
+3. If dirty → `AskUserQuestion`:
+   - **rollback** → `git checkout -- .` + `git clean -fd`, decrements nothing (the iter
+     had not incremented yet), and dispatches the skill at the current iter.
+   - **preserve WIP** → does `git stash push -m "sleepwell-resume-wip <ISO>"`,
+     records the stash in `notes.md`, and dispatches the skill.
+   - **abort** → sets `status: aborted`, `abort_reason: "mid-iter crash, user aborted"`.
+4. If `--force`, silently picks **rollback**.
+5. Reuses `sleepwell-loop` at the **current iter without incrementing** (`iteration` stays
+   as is; the skill detects resume via lock + status).
 
 ### `stopped`
-1. Reverte `status` para `running`, limpa `stopped_at`.
-2. Append em `notes.md`:
+1. Reverts `status` to `running`, clears `stopped_at`.
+2. Appends to `notes.md`:
    ```
-   ## resume manual — <ISO>
-   - state revertido de "stopped" para "running"
-   - próximo wakeup em 60s
+   ## manual resume — <ISO>
+   - state reverted from "stopped" to "running"
+   - next wakeup in 60s
    ```
-3. Dispara `ScheduleWakeup(60s)` reusando `sleepwell-loop`.
-4. Termina (a próxima iter roda no wakeup).
+3. Triggers `ScheduleWakeup(60s)` reusing `sleepwell-loop`.
+4. Finishes (the next iter runs on the wakeup).
 
 ### `aborted`
-1. Provável `consecutive_failures >= 3`. AskUserQuestion:
-   - **zerar contador e retomar** → `consecutive_failures = 0`, `status = running`,
-     anota em `notes.md`, dispara `ScheduleWakeup(60s)`.
-   - **inspecionar antes** → não muda nada, sugere `/sleepwell:sleepwell-status` e `/sleepwell:sleepwell-diff`.
-2. Se `--force`, escolhe **zerar e retomar**.
-3. Se `abort_reason` indica `cost_budget_usd` excedido → recusa zerar contador
-   e instrui o usuário a relançar com `--max-cost` maior via novo `/sleepwell:sleepwell`.
+1. Likely `consecutive_failures >= 3`. AskUserQuestion:
+   - **reset counter and resume** → `consecutive_failures = 0`, `status = running`,
+     records in `notes.md`, triggers `ScheduleWakeup(60s)`.
+   - **inspect first** → changes nothing, suggests `/sleepwell:sleepwell-status` and `/sleepwell:sleepwell-diff`.
+2. If `--force`, picks **reset and resume**.
+3. If `abort_reason` indicates `cost_budget_usd` exceeded → refuses to reset the counter
+   and instructs the user to relaunch with a higher `--max-cost` via a new `/sleepwell:sleepwell`.
 
 ### `done`
-Erro: "loop já concluído. Para começar outro intent, use
-`/sleepwell:sleepwell \"<novo intent>\"` (state antigo será arquivado)."
+Error: "loop already concluded. To start another intent, use
+`/sleepwell:sleepwell \"<new intent>\"` (old state will be archived)."
 
 ## `--from-iter N`
-Override avançado. Seta `state.iteration = N-1` antes de relançar a skill (a
-skill incrementa para N na próxima iter). Útil para repetir uma iter que
-passou mas sentiu errado. Anota override em `notes.md`.
+Advanced override. Sets `state.iteration = N-1` before relaunching the skill (the
+skill increments to N on the next iter). Useful to repeat an iter that
+passed but felt wrong. Records the override in `notes.md`.
 
-## Lock anti-órfão
+## Anti-orphan lock
 
-Antes de qualquer `ScheduleWakeup` ou invocação direta da skill:
-
-```
-.sleepwell/resume.lock = { "ts": "<ISO>", "pid": <process-pid-aprox> }
-```
-
-A skill `sleepwell-loop` deve ler esse lock no boot, comparar com o próprio
-contexto, e remover ao começar a iter. Wakeups disparados antes do `/resume`
-veem `status != running` e abortam sem trabalho.
-
-## Exemplos
+Before any `ScheduleWakeup` or direct skill invocation:
 
 ```
-/sleepwell:sleepwell-resume                    # caso comum: detecta state e age
-/sleepwell:sleepwell-resume --force            # sem perguntar, escolhe defaults seguros
-/sleepwell:sleepwell-resume --from-iter 5      # reentra na iter 5
+.sleepwell/resume.lock = { "ts": "<ISO>", "pid": <process-pid-approx> }
+```
+
+The `sleepwell-loop` skill must read this lock at boot, compare with its own
+context, and remove it when starting the iter. Wakeups dispatched before `/resume`
+see `status != running` and abort without work.
+
+## Examples
+
+```
+/sleepwell:sleepwell-resume                    # common case: detects state and acts
+/sleepwell:sleepwell-resume --force            # without asking, picks safe defaults
+/sleepwell:sleepwell-resume --from-iter 5      # re-enters at iter 5
 ```

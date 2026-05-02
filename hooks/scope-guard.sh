@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# scope-guard.sh — PreToolUse hook do plugin sleepwell.
+# scope-guard.sh — PreToolUse hook for the sleepwell plugin.
 #
-# Quando o loop sleepwell está em `status: running` e tem `worktree_path`
-# definido, qualquer Edit/Write/MultiEdit/NotebookEdit fora desse worktree
-# é recusado. Garante que o loop autônomo não vaze edições para outros
-# projetos/diretórios.
+# When the sleepwell loop is in `status: running` and has `worktree_path`
+# defined, any Edit/Write/MultiEdit/NotebookEdit outside that worktree
+# is refused. Ensures the autonomous loop does not leak edits to other
+# projects/directories.
 
 set -euo pipefail
 
@@ -25,14 +25,14 @@ status=$(jq -r '.status // empty' "$state_file" 2>/dev/null || true)
 worktree_path=$(jq -r '.worktree_path // empty' "$state_file" 2>/dev/null || true)
 [ -n "$worktree_path" ] || exit 0
 
-# Resolve caminho canônico do worktree.
+# Resolve canonical worktree path.
 wt_real=$(realpath "$worktree_path" 2>/dev/null || echo "$worktree_path")
 
-# Tools usam `file_path` (Edit/Write/MultiEdit) e `notebook_path` (NotebookEdit).
+# Tools use `file_path` (Edit/Write/MultiEdit) and `notebook_path` (NotebookEdit).
 target=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
 [ -n "$target" ] || exit 0
 
-# Resolve target — pode não existir ainda (Write de arquivo novo); cai para o pai.
+# Resolve target — may not exist yet (Write of a new file); fall back to the parent.
 if target_real=$(realpath "$target" 2>/dev/null); then
   :
 elif parent_real=$(realpath "$(dirname "$target")" 2>/dev/null); then
@@ -48,14 +48,14 @@ case "$target_real" in
 esac
 
 cat >&2 <<EOF
-sleepwell: edição fora do worktree bloqueada.
+sleepwell: edit outside the worktree blocked.
 
   tool:    $tool_name
   target:  $target_real
   scope:   $wt_real
 
-Durante um loop sleepwell em execução só é permitido editar dentro do
-worktree isolado. Se você precisa mudar algo fora, pare o loop com
-/sleepwell-stop e edite manualmente.
+While a sleepwell loop is running, edits are only allowed inside the
+isolated worktree. If you need to change something outside, stop the
+loop with /sleepwell:sleepwell-stop and edit manually.
 EOF
 exit 2

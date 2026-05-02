@@ -1,132 +1,132 @@
-# Modo: wave (experimental)
+# Mode: wave (experimental)
 
-**Apetite:** explorar mudanças significativas com auto-crítica embutida.
-**Risco:** médio-alto — escopo de cada wave é maior que `refine`, menor que `radical`.
+**Appetite:** explore significant changes with built-in self-criticism.
+**Risk:** medium-high — each wave's scope is larger than `refine`, smaller than `radical`.
 
-> **Status:** experimental. Ative com `--mode wave` no `/sleepwell:sleepwell`. Espere
-> custo por iter ~3x maior (3 sub-agents em sequência). Feedback bem-vindo.
+> **Status:** experimental. Activate with `--mode wave` on `/sleepwell:sleepwell`. Expect
+> per-iter cost ~3x higher (3 sub-agents in sequence). Feedback welcome.
 
-## Conceito
+## Concept
 
-Cada **wave** = 1 iteração do loop, mas internamente roda **3 sub-agents em
-sequência**, cada um com role distinta:
+Each **wave** = 1 loop iteration, but internally runs **3 sub-agents in
+sequence**, each with a distinct role:
 
-1. **Propor radical** (`role: proposer`) — gera uma mudança ambiciosa.
-2. **Criticar** (`role: critic`) — adversarial review da proposta.
-3. **Consolidar + commit** (`role: consolidator`) — aplica versão final
-   ajustada pelo critic e commita.
+1. **Propose radical** (`role: proposer`) — generate an ambitious change.
+2. **Criticize** (`role: critic`) — adversarial review of the proposal.
+3. **Consolidate + commit** (`role: consolidator`) — apply the final version
+   adjusted by the critic and commit.
 
-Só o terceiro sub-agent escreve no working tree e commita. Os dois primeiros
-produzem artefatos textuais (proposta + crítica) anexados ao `notes.md`.
+Only the third sub-agent writes to the working tree and commits. The first two
+produce textual artifacts (proposal + critique) appended to `notes.md`.
 
-## Quando usar
+## When to use
 
-- Você quer a coragem do `radical` mas sem comprar o risco de não-revisão.
-- A mudança tem múltiplas formas válidas e vale considerar trade-offs.
-- O custo extra por iter é aceitável (orçamento via `--max-cost`).
+- You want the courage of `radical` without the risk of skipping review.
+- The change has multiple valid forms and trade-offs are worth weighing.
+- Extra cost per iter is acceptable (budget via `--max-cost`).
 
-## Quando NÃO usar
+## When NOT to use
 
-- Tarefas mecânicas (use `tidy`).
-- Refactor pequeno bem definido (use `refine`).
-- TDD cadenciado (use `build`).
-- Reescrita estrutural óbvia já planejada (use `radical` direto).
+- Mechanical tasks (use `tidy`).
+- Small well-defined refactor (use `refine`).
+- Cadenced TDD (use `build`).
+- Obvious structural rewrite already planned (use `radical` directly).
 
-## Roles e prompts
+## Roles and prompts
 
 ### Sub-agent 1 — Proposer
 
-> Você é o **proposer** de uma wave do sleepwell. Sua tarefa é propor a
-> mudança mais audaciosa que ainda seja defensável para a intent atual.
+> You are the **proposer** of a sleepwell wave. Your task is to propose the
+> most audacious change that is still defensible for the current intent.
 >
-> Inputs: `state.intent`, `state.mode = wave`, últimas 30 linhas de
-> `notes.md`, `git log <branch>` recente, `git diff --stat <base>..HEAD`.
+> Inputs: `state.intent`, `state.mode = wave`, last 30 lines of
+> `notes.md`, recent `git log <branch>`, `git diff --stat <base>..HEAD`.
 >
-> Output: uma proposta em Markdown com seções:
-> - **Mudança proposta** (1 parágrafo claro).
-> - **Por que radical** (o que essa abordagem ousa que uma refine não ousaria).
-> - **Trade-offs conhecidos** (≥2).
-> - **Plano de aplicação** (lista de passos concretos).
+> Output: a Markdown proposal with sections:
+> - **Proposed change** (1 clear paragraph).
+> - **Why radical** (what this approach dares that a refine would not).
+> - **Known trade-offs** (≥2).
+> - **Application plan** (list of concrete steps).
 >
-> NÃO escreva código no working tree. NÃO commite. Apenas devolva o markdown.
+> Do NOT write code in the working tree. Do NOT commit. Just return the markdown.
 
 ### Sub-agent 2 — Critic
 
-> Você é o **critic** desta wave. Recebeu a proposta do proposer. Sua tarefa
-> é abater a proposta com rigor — busque furos, riscos ocultos, soluções
-> mais simples que entreguem 80% do valor.
+> You are the **critic** of this wave. You received the proposer's proposal.
+> Your task is to take it down rigorously — find holes, hidden risks,
+> simpler solutions that deliver 80% of the value.
 >
-> Output em Markdown:
-> - **Furos** (lista numerada, cada item com 1-3 linhas).
-> - **Riscos ocultos** (efeitos colaterais não-óbvios).
-> - **Alternativa simpler** (proposta mais conservadora que entrega valor
->   parecido — pode ser "manter como está").
-> - **Veredicto:** `aprovar`, `aprovar-com-ajustes`, ou `descartar`.
+> Output in Markdown:
+> - **Holes** (numbered list, each item 1-3 lines).
+> - **Hidden risks** (non-obvious side effects).
+> - **Simpler alternative** (more conservative proposal delivering similar
+>   value — may be "leave as-is").
+> - **Verdict:** `approve`, `approve-with-changes`, or `discard`.
 >
-> Se `aprovar-com-ajustes`, liste os ajustes obrigatórios para o consolidator.
-> NÃO escreva código. NÃO commite.
+> If `approve-with-changes`, list mandatory adjustments for the consolidator.
+> Do NOT write code. Do NOT commit.
 
 ### Sub-agent 3 — Consolidator
 
-> Você é o **consolidator**. Recebeu a proposta + a crítica.
+> You are the **consolidator**. You received the proposal + the critique.
 >
-> Regras:
-> - Veredicto `aprovar` → aplica a proposta original.
-> - Veredicto `aprovar-com-ajustes` → aplica a proposta integrando os
->   ajustes obrigatórios do critic.
-> - Veredicto `descartar` → não toca em código; commita apenas anotação em
->   `notes.md` registrando a wave como aprendizado e marca a iter como
->   `pass` lógico (não fail — descartar é decisão válida).
+> Rules:
+> - Verdict `approve` → apply the original proposal.
+> - Verdict `approve-with-changes` → apply the proposal integrating the
+>   mandatory adjustments from the critic.
+> - Verdict `discard` → do not touch code; commit only an annotation in
+>   `notes.md` recording the wave as a learning and mark the iter as
+>   logical `pass` (not fail — discarding is a valid decision).
 >
-> Tarefa final: aplicar mudanças no working tree, rodar `verify_cmds`
-> (lint/typecheck/test), e fazer **um commit atômico** seguindo a
-> convenção do repo. Anexa proposta + crítica + decisão final no
-> `notes.md` da iter.
+> Final task: apply changes to the working tree, run `verify_cmds`
+> (lint/typecheck/test), and make **one atomic commit** following the
+> repo convention. Append proposal + critique + final decision to the
+> iter's `notes.md`.
 
-## Integração com `sleepwell-loop`
+## Integration with `sleepwell-loop`
 
-Quando `state.mode == "wave"`:
+When `state.mode == "wave"`:
 
-1. A skill `sleepwell-loop` detecta o modo no início da iter.
-2. Em vez de executar o passo de "edição+verify+commit" diretamente,
-   dispatcha 3 sub-agents em sequência (Task tool ou skill equivalente),
-   passando o estado e os artefatos de cada etapa adiante.
-3. O resultado da wave (pass/fail) é determinado pelo terceiro sub-agent,
-   exatamente como em qualquer outro modo (lint+typecheck+test).
-4. `consecutive_failures`, `total_passes`, `total_fails` continuam
-   funcionando igual.
-5. `cost_so_far_usd` acumula tokens dos 3 sub-agents — daí o custo ~3x.
+1. The `sleepwell-loop` skill detects the mode at the start of the iter.
+2. Instead of running "edit+verify+commit" directly, it dispatches 3
+   sub-agents in sequence (Task tool or equivalent skill), passing state
+   and the artifacts of each step forward.
+3. The wave result (pass/fail) is determined by the third sub-agent,
+   exactly like any other mode (lint+typecheck+test).
+4. `consecutive_failures`, `total_passes`, `total_fails` keep working
+   the same.
+5. `cost_so_far_usd` accumulates tokens from the 3 sub-agents — hence the ~3x cost.
 
-## Notes.md por wave
+## notes.md per wave
 
-Cada wave produz 3 blocos no `notes.md`:
+Each wave produces 3 blocks in `notes.md`:
 
 ```
 ### iter <N> — wave (proposer)
-<conteúdo proposta>
+<proposal content>
 
 ### iter <N> — wave (critic)
-<conteúdo crítica + veredicto>
+<critique content + verdict>
 
 ### iter <N> — wave (consolidator)
-<decisão final + commit hash + verify result>
+<final decision + commit hash + verify result>
 ```
 
-## Permissões
+## Permissions
 
-Iguais a `refine` para o consolidator (não pode quebrar API pública sem
-plano). Proposer pode sugerir radical, mas o consolidator é quem decide
-aplicar — e respeita as restrições do modo.
+Same as `refine` for the consolidator (cannot break public API without a
+plan). The proposer may suggest radical, but the consolidator decides
+whether to apply — respecting the mode's restrictions.
 
-## Heurística de fim
+## End heuristic
 
-Igual aos outros modos: `stop_when` cumprido OU `max_iter` OU
-`consecutive_failures >= 3` OU `cost_budget_usd` excedido.
+Same as other modes: `stop_when` met OR `max_iter` OR
+`consecutive_failures >= 3` OR `cost_budget_usd` exceeded.
 
-## Checklist por wave
+## Per-wave checklist
 
-- [ ] Proposer entregou markdown estruturado, sem tocar working tree?
-- [ ] Critic emitiu veredicto explícito (`aprovar`/`aprovar-com-ajustes`/`descartar`)?
-- [ ] Consolidator respeitou o veredicto?
-- [ ] Notes.md contém os 3 blocos da wave?
-- [ ] Custo da iter foi anotado e somado em `cost_so_far_usd`?
+- [ ] Did the proposer return structured markdown without touching the working tree?
+- [ ] Did the critic emit an explicit verdict (`approve`/`approve-with-changes`/`discard`)?
+- [ ] Did the consolidator respect the verdict?
+- [ ] Does notes.md contain the 3 wave blocks?
+- [ ] Was the iter cost recorded and added to `cost_so_far_usd`?

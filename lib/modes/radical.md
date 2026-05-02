@@ -1,60 +1,60 @@
-# Modo: radical
+# Mode: radical
 
-**Apetite:** reescrever subsistemas. **Risco:** alto.
+**Appetite:** rewrite subsystems. **Risk:** high.
 
-## Quando usar
+## When to use
 
-- Refactor não é mais viável: a estrutura precisa morrer.
-- Trocar lib/stack pontual (ex: in-memory cache → Redis).
-- Reorganizar arquitetura de módulo (ex: extrair domínio para pacote separado).
-- Substituir implementação por uma equivalente significativamente diferente.
+- Refactor is no longer viable: the structure must die.
+- Targeted lib/stack swap (e.g. in-memory cache → Redis).
+- Reorganize module architecture (e.g. extract domain into a separate package).
+- Replace implementation with a significantly different equivalent.
 
-## Estratégia
+## Strategy
 
-Strangler-fig friendly. Cada iter avança UM degrau:
+Strangler-fig friendly. Each iter advances ONE step:
 
-1. Cria nova implementação em paralelo (sem matar a antiga).
-2. Adiciona feature flag / fork de código pra escolher entre antiga e nova.
-3. Aponta um ou poucos call-sites pra nova.
-4. Roda testes — se quebra, rollback.
-5. Migra mais call-sites, iter por iter.
-6. Quando todos migraram, remove a antiga.
+1. Build the new implementation in parallel (without killing the old).
+2. Add a feature flag / code fork to choose between old and new.
+3. Point one or a few call-sites to the new one.
+4. Run tests — if it breaks, rollback.
+5. Migrate more call-sites, iter by iter.
+6. Once all are migrated, remove the old.
 
-## Permissões extras (vs. refine)
+## Extra permissions (vs. refine)
 
-- Pode introduzir abstração nova SE substitui uma existente equivalente.
-- Pode quebrar uma API interna SE atualiza todos os callers na mesma iter (commit atômico).
-- Pode invalidar dados em ambiente local SE state.dry_run=true ou se aviso explícito em notes.
+- May introduce a new abstraction IF it replaces an equivalent existing one.
+- May break an internal API IF it updates all callers in the same iter (atomic commit).
+- May invalidate data in a local environment IF state.dry_run=true or with an explicit warning in notes.
 
-## Restrições mantidas
+## Retained restrictions
 
-- **Nunca** quebra a API pública sem ter migrações claras documentadas.
-- **Nunca** remove a antiga implementação antes que NEW esteja 100% no lugar.
-- **Nunca** opera em produção / shared state sem confirmação explícita.
+- **Never** break the public API without clearly documented migrations.
+- **Never** remove the old implementation before the NEW one is 100% in place.
+- **Never** operate on production / shared state without explicit confirmation.
 
-## Heurística de fim
+## End heuristic
 
-- Subsistema antigo removido.
-- Subsistema novo cobrindo todos os call-sites.
-- Testes verdes, incluindo regression para casos que motivaram a reescrita.
+- Old subsystem removed.
+- New subsystem covering all call-sites.
+- Tests green, including regression for cases that motivated the rewrite.
 
-## Checklist por iter
+## Per-iter checklist
 
-- [ ] Esta iter cria uma fatia do strangler ou migra um grupo de callers?
-- [ ] Há rollback óbvio se quebrar (feature flag, branch separada)?
-- [ ] Estou mantendo compat de API pública até o final?
-- [ ] Documentei em notes.md o estado da migração (% migrado)?
+- [ ] Does this iter create a strangler slice or migrate a group of callers?
+- [ ] Is there an obvious rollback if it breaks (feature flag, separate branch)?
+- [ ] Am I keeping public-API compat until the end?
+- [ ] Did I document migration state in notes.md (% migrated)?
 
-## Recomendação
+## Recommendation
 
-Antes de iniciar `radical`, monte o plano em uma sub-fase
-(`/sleepwell-phase-start "plan-radical"`) e preencha critérios de aceite
-em `PLAN.md`. `radical` sem plano costuma virar churn.
+Before starting `radical`, build the plan in a sub-phase
+(`/sleepwell:sleepwell-phase-start "plan-radical"`) and fill in acceptance criteria
+in `PLAN.md`. `radical` without a plan tends to become churn.
 
 <!--
-Inspirações (não obrigatórias em runtime):
-- gitnexus-impact-analysis — entender raio da mudança.
-- superpowers:writing-plans — disciplina de planejamento prévio.
-A sub-fase interna (lib/ritual.md §9) cumpre o mesmo papel sem dependência externa.
+Inspirations (not required at runtime):
+- gitnexus-impact-analysis — understand the change blast radius.
+- superpowers:writing-plans — discipline of upfront planning.
+The internal sub-phase (lib/ritual.md §9) plays the same role without external dependencies.
 -->
 

@@ -1,51 +1,51 @@
-# Modo: build
+# Mode: build
 
-**Apetite:** construir feature nova end-to-end. **Risco:** médio.
+**Appetite:** build a new end-to-end feature. **Risk:** medium.
 
-## Estratégia
+## Strategy
 
-TDD-first. Cada iter avança UMA fatia do funil:
+TDD-first. Each iter advances ONE stage of the funnel:
 
-1. **Red:** escreve teste que falha pela razão certa.
-2. **Green:** implementa o mínimo pra passar.
-3. **Refactor:** limpa sem mudar comportamento.
+1. **Red:** write a test that fails for the right reason.
+2. **Green:** implement the minimum to pass.
+3. **Refactor:** clean up without changing behavior.
 
-Cada uma dessas fases é um commit/iter. Não pula etapa.
+Each of these phases is a commit/iter. Do not skip a step.
 
-## Sequência típica de iters
+## Typical iter sequence
 
-| Iter | Foco |
+| Iter | Focus |
 |---|---|
-| 1 | Definir interface mínima (assinatura, tipos, contrato). Stub que falha. |
-| 2 | Teste do happy path — falha. |
-| 3 | Implementação mínima → green. |
-| 4 | Refactor da implementação. |
-| 5 | Teste de edge case — falha. |
-| 6 | Implementação cobrindo edge case → green. |
-| 7+ | Repete 5-6 até cobrir. |
-| N | Integração com chamador real. |
-| N+1 | Documentação / comentário se WHY não-óbvio. |
+| 1 | Define minimal interface (signature, types, contract). Failing stub. |
+| 2 | Happy path test — fails. |
+| 3 | Minimal implementation → green. |
+| 4 | Refactor the implementation. |
+| 5 | Edge case test — fails. |
+| 6 | Implementation covering the edge case → green. |
+| 7+ | Repeat 5-6 until covered. |
+| N | Integration with the real caller. |
+| N+1 | Documentation / comment if WHY is non-obvious. |
 
-<!-- Inspiração (não obrigatória em runtime): superpowers:test-driven-development. O fluxo TDD acima já está embutido. -->
+<!-- Inspiration (not required at runtime): superpowers:test-driven-development. The TDD flow above is already embedded. -->
 
 
-## O que NÃO fazer
+## What NOT to do
 
-- Não escreve implementação antes do teste vermelho.
-- Não pula refactor por achar que "tá rápido".
-- Não adiciona escopo além da intent — anota e segue.
-- Não silencia testes pra passar (`@pytest.skip`, `it.skip`).
+- Do not write implementation before the failing test.
+- Do not skip refactor because "it's fast".
+- Do not add scope beyond the intent — note it and move on.
+- Do not silence tests to pass (`@pytest.skip`, `it.skip`).
 
-## Heurística de fim
+## End heuristic
 
-Feature funcionando end-to-end com:
-- Cobertura de happy path + edge cases conhecidos.
-- Integrada ao chamador real (não só vive isolada nos testes).
-- Sem TODOs críticos no diff.
+Feature working end-to-end with:
+- Coverage of happy path + known edge cases.
+- Integrated with the real caller (not just isolated in tests).
+- No critical TODOs in the diff.
 
-## Checklist por iter
+## Per-iter checklist
 
-- [ ] Esta iter avança UMA fase TDD (red OU green OU refactor)?
-- [ ] O teste novo é específico e falha pela razão certa?
-- [ ] A implementação não vai além do necessário pra essa fase?
-- [ ] Não há side-effect oculto fora do escopo da iter?
+- [ ] Does this iter advance ONE TDD phase (red OR green OR refactor)?
+- [ ] Is the new test specific and failing for the right reason?
+- [ ] Does the implementation not go beyond what this phase needs?
+- [ ] No hidden side-effects outside the iter scope?

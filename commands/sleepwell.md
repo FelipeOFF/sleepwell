@@ -1,64 +1,64 @@
 ---
-description: Inicia (ou retoma) o loop autônomo sleepwell. Combina disciplina gnhf (branch isolada, commit atômico, rollback em fail) com adaptação overnight (voice matching, modos, meta-learning). Roda dentro da sessão CC com cache quente entre iterações.
-argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>] [--no-pr] [--draft-pr]
+description: Starts (or resumes) the autonomous sleepwell loop. Combines gnhf discipline (isolated branch, atomic commit, rollback on fail) with overnight adaptation (voice matching, modes, meta-learning). Runs inside the CC session with a warm cache between iterations.
+argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condition>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>] [--no-pr] [--draft-pr]
 ---
 
 # /sleepwell:sleepwell
 
-Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint — ela vai bootstrapar o estado, criar a branch isolada, extrair voice profile, ler calibration, e rodar a 1ª iteração.
+Starts or resumes the autonomous loop. Use the `sleepwell-loop` skill as the entrypoint — it bootstraps state, creates the isolated branch, extracts the voice profile, reads calibration, and runs the first iteration.
 
-> **Fluxo canônico:** ver `lib/ritual.md` §2 (bootstrap) e §3 (iteração). Aqui ficam apenas args do CLI e dispatching pra skill — sem duplicar passos.
+> **Canonical flow:** see `lib/ritual.md` §2 (bootstrap) and §3 (iteration). This file only covers CLI args and dispatching to the skill — no duplicated steps.
 
-## Argumentos parseados
+## Parsed arguments
 
 ```
-<intent>                        primeira string entre aspas — obrigatório no bootstrap
---intent-file <path>                  opcional, alternativa para intent longo (lê arquivo)
+<intent>                              first quoted string — required at bootstrap
+--intent-file <path>                  optional, alternative for long intent (reads file)
 --mode tidy|refine|build|radical      default: refine
 --max-iter <N>                        default: 20
---max-cost <USD>                      opcional, orçamento máximo total em USD (abort gate)
---max-cost-per-iter <USD>             opcional, guardrail per-iter (iter que excede aborta como FAIL e entra em backoff; não conta como abort total — ver lib/ritual.md §8.1)
---stop-when "<condição NL>"           opcional
---dry-run                             opcional (não commita)
---no-worktree                         opcional (default: usa worktree)
---no-voice                            opcional
---no-meta                             opcional
---no-pr                               opcional (default: cria PR ao final do run)
---draft-pr                            opcional (cria PR como draft)
+--max-cost <USD>                      optional, total max budget in USD (abort gate)
+--max-cost-per-iter <USD>             optional, per-iter guardrail (an iter that exceeds aborts as FAIL and enters backoff; does not count as a total abort — see lib/ritual.md §8.1)
+--stop-when "<NL condition>"          optional
+--dry-run                             optional (does not commit)
+--no-worktree                         optional (default: uses worktree)
+--no-voice                            optional
+--no-meta                             optional
+--no-pr                               optional (default: creates PR at end of run)
+--draft-pr                            optional (creates PR as draft)
 ```
 
-> **PR-only flow:** ao final de um run com `status == done`, o loop invoca
-> `/sleepwell:sleepwell-pr` automaticamente (a menos que `--no-pr` tenha sido passado).
-> Auto-merge fica desabilitado por padrão. Veja `commands/sleepwell:sleepwell-pr.md`.
+> **PR-only flow:** at the end of a run with `status == done`, the loop invokes
+> `/sleepwell:sleepwell-pr` automatically (unless `--no-pr` was passed).
+> Auto-merge is disabled by default. See `commands/sleepwell:sleepwell-pr.md`.
 
-Todas as flags são **persistidas no `state.json`** no bootstrap (`worktree_enabled`,
+All flags are **persisted in `state.json`** at bootstrap (`worktree_enabled`,
 `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`,
-`max_cost_per_iter_usd`) — assim retomadas via
-`ScheduleWakeup` preservam o setup escolhido. Ver `lib/state-schema.json` (v2)
-e `lib/ritual.md §8`.
+`max_cost_per_iter_usd`) — so resumes via
+`ScheduleWakeup` preserve the chosen setup. See `lib/state-schema.json` (v2)
+and `lib/ritual.md §8`.
 
-## Comportamento
+## Behavior
 
-1. Se `.sleepwell/state.json` **não existe** e há `<intent>` → bootstrap completo.
-2. Se `.sleepwell/state.json` **existe** e `status == "running"` → retoma do ponto que parou (relança skill `sleepwell-loop`).
-3. Se `.sleepwell/state.json` **existe** e `status == "done"|"aborted"|"stopped"`:
-   - Se `<intent>` foi passado → bootstrap novo (move state antigo para `.sleepwell/archive/<timestamp>/`).
-   - Senão → mostra status final e sugere `/sleepwell:sleepwell-status`/`/sleepwell:sleepwell-diff`.
+1. If `.sleepwell/state.json` **does not exist** and there is `<intent>` → full bootstrap.
+2. If `.sleepwell/state.json` **exists** and `status == "running"` → resumes from where it stopped (relaunches the `sleepwell-loop` skill).
+3. If `.sleepwell/state.json` **exists** and `status == "done"|"aborted"|"stopped"`:
+   - If `<intent>` was passed → fresh bootstrap (moves old state to `.sleepwell/archive/<timestamp>/`).
+   - Otherwise → shows final status and suggests `/sleepwell:sleepwell-status`/`/sleepwell:sleepwell-diff`.
 
-## Validações antes de bootstrapar
+## Validations before bootstrapping
 
-- Repo é git? Se não → erro: "sleepwell precisa de git. Rode `git init`."
-- Branch atual é `main`/`master`/`develop`? OK — vamos criar branch nova.
-- Working tree limpo? Se não → AskUserQuestion: stash automático? abortar?
+- Is the repo a git repo? If not → error: "sleepwell requires git. Run `git init`."
+- Is current branch `main`/`master`/`develop`? OK — we'll create a new branch.
+- Working tree clean? If not → AskUserQuestion: auto stash? abort?
 
-## Invocação
+## Invocation
 
-Invoque agora a skill `sleepwell-loop` com o input `${ARGUMENTS}`.
+Now invoke the `sleepwell-loop` skill with the input `${ARGUMENTS}`.
 
-A skill cuida de:
-- Parse de args
-- Bootstrap (se for o caso)
-- Execução da iteração
-- ScheduleWakeup pra próxima
+The skill takes care of:
+- Argument parsing
+- Bootstrap (if applicable)
+- Iteration execution
+- ScheduleWakeup for the next iteration
 
-Não execute trabalho fora dela — só dispatching aqui.
+Do not perform work outside it — only dispatching here.

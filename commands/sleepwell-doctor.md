@@ -1,36 +1,36 @@
 ---
-description: Diagnostica o ambiente do sleepwell, verifica binário sleepwell-helper e (re)instala se necessário.
+description: Diagnoses the sleepwell environment, checks the sleepwell-helper binary, and (re)installs if necessary.
 argument-hint: "[--reinstall] [--version <tag>] [--dest <dir>]"
 ---
 
 # /sleepwell:sleepwell-doctor
 
-Verifica o ambiente local e garante que o binário `sleepwell-helper` está
-instalado para a plataforma atual.
+Verifies the local environment and ensures the `sleepwell-helper` binary is
+installed for the current platform.
 
-## Etapas
+## Steps
 
-1. **Detecta plataforma** (OS + arch).
-2. **Verifica `sleepwell-helper`** em ordem:
+1. **Detect platform** (OS + arch).
+2. **Check `sleepwell-helper`** in order:
    - `$XDG_DATA_HOME/sleepwell/bin/sleepwell-helper` (Linux/macOS)
    - `~/.local/share/sleepwell/bin/sleepwell-helper`
    - `$LOCALAPPDATA/sleepwell/bin/sleepwell-helper.exe` (Windows)
    - `$PATH`
-3. **Se ausente ou flag `--reinstall`**, executa `scripts/install-helper.sh`
-   (Linux/macOS) ou `scripts/install-helper.ps1` (Windows) baixando o
-   binário do GitHub Releases (`FelipeOFF/sleepwell`).
-4. **Smoke test**: roda `sleepwell-helper --version` e `sleepwell-helper --help`.
-5. **Verifica deps externas**: `git`, `gh` (opcional), `jq` (opcional para
-   fallback bash).
-6. **Reporta tabela** com cada verificação e remediation hint.
+3. **If absent or `--reinstall` flag set**, runs `scripts/install-helper.sh`
+   (Linux/macOS) or `scripts/install-helper.ps1` (Windows) downloading the
+   binary from GitHub Releases (`FelipeOFF/sleepwell`).
+4. **Smoke test**: runs `sleepwell-helper --version` and `sleepwell-helper --help`.
+5. **Check external deps**: `git`, `gh` (optional), `jq` (optional for
+   bash fallback).
+6. **Report table** with each check and remediation hint.
 
 ## Args
 
-- `--reinstall` — força redownload mesmo que binário esteja presente.
-- `--version <tag>` — instala uma versão específica (ex: `bin-v0.5.0`).
-- `--dest <dir>` — diretório alternativo de instalação.
+- `--reinstall` — forces redownload even if binary is present.
+- `--version <tag>` — installs a specific version (e.g.: `bin-v0.5.0`).
+- `--dest <dir>` — alternative installation directory.
 
-## Saída
+## Output
 
 ```
 Platform:           darwin / aarch64
@@ -43,24 +43,24 @@ hooks:              ✓ block-push.sh, scope-guard.sh, ensure-helper.sh executab
 state schema:       ✓ v3
 ```
 
-## Comportamento por OS
+## Behavior by OS
 
-- **macOS / Linux**: invoca `bash scripts/install-helper.sh --skip-if-present`.
-- **Windows**: invoca `powershell -ExecutionPolicy Bypass -File scripts/install-helper.ps1 -SkipIfPresent`.
+- **macOS / Linux**: invokes `bash scripts/install-helper.sh --skip-if-present`.
+- **Windows**: invokes `powershell -ExecutionPolicy Bypass -File scripts/install-helper.ps1 -SkipIfPresent`.
 
-## Quando usar
+## When to use
 
-- Primeira vez instalando o plugin.
-- Após upgrade do plugin (verificar se há novo binário).
-- Antes de runs longos (overnight) para garantir o ambiente.
-- Quando alguma skill reportar `sleepwell-helper not found`.
+- First time installing the plugin.
+- After plugin upgrade (check whether there is a new binary).
+- Before long runs (overnight) to ensure the environment.
+- When some skill reports `sleepwell-helper not found`.
 
-## Notas
+## Notes
 
-- O hook `SessionStart` (`hooks/ensure-helper.sh`) já tenta instalar
-  automaticamente em background quando uma sessão Claude Code abre. Este
-  comando é o caminho explícito quando você quer feedback imediato ou
-  forçar reinstalação.
-- O download usa GitHub Releases públicos — não requer autenticação.
-- Se nenhum binário pré-compilado existir para sua plataforma, o doctor
-  sugere `cargo install --path bin/sleepwell-helper`.
+- The `SessionStart` hook (`hooks/ensure-helper.sh`) already tries to install
+  automatically in the background when a Claude Code session opens. This
+  command is the explicit path when you want immediate feedback or
+  forced reinstall.
+- The download uses public GitHub Releases — does not require authentication.
+- If no pre-built binary exists for your platform, the doctor
+  suggests `cargo install --path bin/sleepwell-helper`.

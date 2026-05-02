@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# check-skill-deps.sh — lista referências a skills externas no plugin e
-# avisa quais não estão vendoradas em skills/vendor/.
+# check-skill-deps.sh — lists references to external skills in the plugin and
+# warns which ones are not vendored under skills/vendor/.
 #
-# Uso: ./scripts/check-skill-deps.sh
-# Exit 0 sempre (informativo). Use em CI como aviso, não como gate.
+# Usage: ./scripts/check-skill-deps.sh
+# Always exits 0 (informational). Use in CI as a warning, not a gate.
 
 set -euo pipefail
 
@@ -13,8 +13,8 @@ cd "$ROOT"
 echo "sleepwell — skill dependency check"
 echo "=================================="
 
-# Coleta referências do tipo `superpowers:foo` ou `everything-claude-code:bar`
-# em qualquer .md do plugin (exceto vendor/ e docs/SKILLS.md que documenta).
+# Collect references of the form `superpowers:foo` or `everything-claude-code:bar`
+# in any .md of the plugin (except vendor/ and docs/SKILLS.md which documents).
 refs=$(grep -RhoE '(superpowers|everything-claude-code|obsidian-markdown):[a-zA-Z0-9_-]+' \
         --include='*.md' \
         --exclude-dir='vendor' \
@@ -23,28 +23,28 @@ refs=$(grep -RhoE '(superpowers|everything-claude-code|obsidian-markdown):[a-zA-
         | grep -v '^docs/SKILLS.md' \
         | sort -u || true)
 
-# obsidian-markdown também pode aparecer como skill standalone sem prefixo
+# obsidian-markdown may also appear as a standalone skill without prefix
 extra=$(grep -RhoE '`obsidian-markdown`' \
         --include='*.md' \
         --exclude-dir='vendor' \
         . 2>/dev/null | tr -d '`' | sort -u || true)
 
 if [ -z "$refs" ] && [ -z "$extra" ]; then
-  echo "Nenhuma skill externa referenciada."
+  echo "No external skills referenced."
   exit 0
 fi
 
 echo
-echo "Skills referenciadas:"
+echo "Referenced skills:"
 { echo "$refs"; echo "$extra"; } | grep -v '^$' | sort -u | sed 's/^/  - /'
 
 echo
-echo "Vendoradas em skills/vendor/:"
+echo "Vendored under skills/vendor/:"
 if [ -d skills/vendor ]; then
   find skills/vendor -name SKILL.md -mindepth 2 -maxdepth 2 \
     | sed 's|^|  - |'
 else
-  echo "  (nenhuma)"
+  echo "  (none)"
 fi
 
 echo
@@ -52,9 +52,9 @@ echo "Status:"
 missing=0
 while IFS= read -r ref; do
   [ -z "$ref" ] && continue
-  # Ex.: superpowers:using-git-worktrees → using-git-worktrees
+  # E.g.: superpowers:using-git-worktrees → using-git-worktrees
   name=${ref##*:}
-  # Ajuste para vendor: usamos nomes simplificados (ex.: git-worktrees).
+  # Vendor adjustment: we use simplified names (e.g., git-worktrees).
   case "$name" in
     using-git-worktrees) vendor=git-worktrees ;;
     *) vendor=$name ;;
@@ -62,10 +62,10 @@ while IFS= read -r ref; do
   if [ -f "skills/vendor/$vendor/SKILL.md" ]; then
     echo "  [OK]      $ref → skills/vendor/$vendor/"
   else
-    echo "  [missing] $ref (não vendorado — opcional ou cobertura externa)"
+    echo "  [missing] $ref (not vendored — optional or external coverage)"
     missing=$((missing + 1))
   fi
 done <<< "$refs"
 
 echo
-echo "Sumário: $missing referência(s) sem vendor (consulte docs/SKILLS.md para política)."
+echo "Summary: $missing reference(s) without vendor (see docs/SKILLS.md for policy)."

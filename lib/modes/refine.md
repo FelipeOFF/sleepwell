@@ -1,35 +1,35 @@
-# Modo: refine (default)
+# Mode: refine (default)
 
-**Apetite:** refactor incremental, melhorias contínuas, cobertura. **Risco:** baixo-médio.
+**Appetite:** incremental refactor, continuous improvements, coverage. **Risk:** low-medium.
 
-## O que fazer numa iter refine
+## What to do in a refine iter
 
-- Refatorar uma função para clareza (preservando comportamento).
-- Extrair helper quando há duplicação real (regra do 3).
-- Adicionar testes pra caminhos não cobertos.
-- Substituir chamada deprecated por equivalente novo.
-- Melhorar naming de variável/função em escopo local.
-- Reduzir complexidade ciclomática de uma função.
-- Trocar pattern feio por idiomático da stack.
-- Eliminar dead code real.
+- Refactor a function for clarity (preserving behavior).
+- Extract a helper when there is real duplication (rule of 3).
+- Add tests for uncovered paths.
+- Replace a deprecated call with its new equivalent.
+- Improve variable/function naming in local scope.
+- Reduce cyclomatic complexity of a function.
+- Replace an ugly pattern with the stack's idiomatic one.
+- Eliminate genuine dead code.
 
-## O que NÃO fazer
+## What NOT to do
 
-- Não introduzir abstração especulativa ("vai precisar futuramente").
-- Não adicionar features.
-- Não trocar tecnologia/lib.
-- Não reescrever subsistemas — isso é modo `radical`.
-- Não fazer mudança que requer migration manual de dados.
+- Do not introduce speculative abstraction ("will be needed later").
+- Do not add features.
+- Do not swap technology/lib.
+- Do not rewrite subsystems — that's `radical` mode.
+- Do not make changes that require manual data migration.
 
-## Heurística de fim
+## End heuristic
 
-Quando os testes estão verdes, cobertura tá razoável, e a próxima refatoração óbvia não é mais óbvia.
+When tests are green, coverage is reasonable, and the next obvious refactor is no longer obvious.
 
-## Checklist por iter
+## Per-iter checklist
 
-- [ ] A mudança preserva comportamento observável?
-- [ ] Testes existentes ainda passam SEM edição (a não ser que o teste estava errado)?
-- [ ] Diff é localizado (poucos arquivos)?
-- [ ] Há um "porquê" claro pra escrever no commit body?
+- [ ] Does the change preserve observable behavior?
+- [ ] Do existing tests still pass WITHOUT editing (unless a test was wrong)?
+- [ ] Is the diff localized (few files)?
+- [ ] Is there a clear "why" to write in the commit body?
 
-Se a mudança quer crescer pra além de 1 commit coerente → cancela e quebra em iters menores.
+If the change wants to grow beyond 1 coherent commit → cancel and split into smaller iters.

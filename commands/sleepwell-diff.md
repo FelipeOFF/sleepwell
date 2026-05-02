@@ -1,32 +1,32 @@
 ---
-description: Mostra o diff acumulado da branch sleepwell em relação à base (main por default).
+description: Shows the accumulated diff of the sleepwell branch against the base (main by default).
 argument-hint: [--base <branch>] [--stat]
 ---
 
-# /sleepwell-diff
+# /sleepwell:sleepwell-diff
 
-Mostra o que o loop sleepwell produziu até agora.
+Shows what the sleepwell loop has produced so far.
 
-## Comportamento
+## Behavior
 
-1. Lê `.sleepwell/state.json` para descobrir `branch`. Se ausente → erro: "nenhum loop sleepwell aqui".
-2. Determina base:
-   - `--base <branch>` se passado.
-   - Senão usa o helper `sleepwell_base_branch` (detecta `main` / `master` / `develop` na ordem; ver `lib/ritual.md §7.1`).
-3. Roda:
+1. Reads `.sleepwell/state.json` to discover `branch`. If absent → error: "no sleepwell loop here".
+2. Determines base:
+   - `--base <branch>` if passed.
+   - Otherwise uses the `sleepwell_base_branch` helper (detects `main` / `master` / `develop` in order; see `lib/ritual.md §7.1`).
+3. Runs:
    ```bash
-   # contagem de commits
+   # commit count
    git log --oneline <base>..<state.branch>
 
-   # diff completo OU apenas stat
+   # full diff OR just stat
    git diff <base>...<state.branch>           # default
-   git diff --stat <base>...<state.branch>    # se --stat
+   git diff --stat <base>...<state.branch>    # if --stat
    ```
-4. Mostra:
-   - Lista de commits da branch (com `[sleepwell-iter:N]`).
-   - Stat resumido sempre (arquivos alterados / +N -M).
-   - Diff completo se não foi pedido `--stat`.
+4. Shows:
+   - List of commits on the branch (with `[sleepwell-iter:N]`).
+   - Summary stat always (changed files / +N -M).
+   - Full diff if `--stat` was not requested.
 
-## Sem efeitos colaterais
+## No side effects
 
-Read-only. Não modifica nada. Pode rodar enquanto loop está ativo (não interfere no `ScheduleWakeup`).
+Read-only. Does not modify anything. Can run while the loop is active (does not interfere with `ScheduleWakeup`).

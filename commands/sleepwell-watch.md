@@ -1,34 +1,34 @@
 ---
-description: TUI live com status do loop sleepwell em curso.
+description: Live TUI showing the status of an in-progress sleepwell loop.
 argument-hint: "[--interval 3] [--tail 15]"
 ---
 
 # /sleepwell:sleepwell-watch
 
-Mostra um dashboard TUI live com o estado do loop sleepwell. Bloqueia o
-terminal até `Ctrl+C`. Read-only — não muda `state.json` nem dispara skill.
+Shows a live TUI dashboard with the state of the sleepwell loop. Blocks the
+terminal until `Ctrl+C`. Read-only — does not change `state.json` nor trigger the skill.
 
-## Argumentos
+## Arguments
 
 ```
---interval <segundos>   intervalo entre refreshs (default: 3)
---tail <N>              linhas finais de notes.md a mostrar (default: 15)
+--interval <seconds>    interval between refreshes (default: 3)
+--tail <N>              final lines of notes.md to show (default: 15)
 ```
 
-## O que mostra
+## What it shows
 
-A cada refresh:
+On each refresh:
 
-- linha resumo: `iter X/Y  pass=P fail=F  status=<S>  cost=$<USD>`
-- separador
-- últimas N linhas de `.sleepwell/notes.md`
-- separador
-- últimos 5 commits da branch (`git log --oneline <branch>`)
+- summary line: `iter X/Y  pass=P fail=F  status=<S>  cost=$<USD>`
+- separator
+- last N lines of `.sleepwell/notes.md`
+- separator
+- last 5 commits of the branch (`git log --oneline <branch>`)
 
-## Implementação
+## Implementation
 
-Dispara um Bash blocante. Usa `watch(1)` se disponível; senão fallback `while
-true`. Trata state ausente sem crashar.
+Spawns a blocking Bash. Uses `watch(1)` if available; otherwise falls back to `while
+true`. Handles missing state without crashing.
 
 ```bash
 INTERVAL=${1:-3}
@@ -36,7 +36,7 @@ TAIL=${2:-15}
 
 if command -v watch >/dev/null; then
   watch -n "$INTERVAL" -c bash -c '
-    [ -f .sleepwell/state.json ] || { echo "sem loop ativo"; exit 0; }
+    [ -f .sleepwell/state.json ] || { echo "no active loop"; exit 0; }
     jq -r "\"iter \(.iteration)/\(.max_iter)  pass=\(.total_passes) fail=\(.total_fails)  status=\(.status)  cost=\$\(.cost_so_far_usd // 0)\"" .sleepwell/state.json
     echo "---"
     tail -n '"$TAIL"' .sleepwell/notes.md 2>/dev/null
@@ -48,7 +48,7 @@ else
   while true; do
     clear
     if [ ! -f .sleepwell/state.json ]; then
-      echo "sem loop ativo"
+      echo "no active loop"
     else
       jq -r '"iter \(.iteration)/\(.max_iter)  pass=\(.total_passes) fail=\(.total_fails)  status=\(.status)  cost=$\(.cost_so_far_usd // 0)"' .sleepwell/state.json
       echo "---"
@@ -62,22 +62,22 @@ else
 fi
 ```
 
-## Saída
+## Exit
 
-`Ctrl+C` encerra. Como o comando é read-only, encerrar a qualquer momento é
-seguro — não deixa o loop em estado inconsistente.
+`Ctrl+C` exits. Since the command is read-only, exiting at any time is
+safe — it does not leave the loop in an inconsistent state.
 
 ## Edge cases
 
-- `.sleepwell/state.json` ausente → mostra "sem loop ativo" (não falha).
-- `notes.md` ausente → tail silencioso (sem stderr).
-- `jq` não instalado → recomende instalar; `watch` usa `jq` para formatar.
-- Branch sleepwell removida (após merge) → `git log` retorna vazio, não
-  quebra o refresh.
+- `.sleepwell/state.json` missing → shows "no active loop" (does not fail).
+- `notes.md` missing → silent tail (no stderr).
+- `jq` not installed → recommend installing it; `watch` uses `jq` to format.
+- sleepwell branch removed (after merge) → `git log` returns empty, does not
+  break the refresh.
 
-## Quando usar
+## When to use
 
-- Acompanhar loop overnight em outro terminal/aba.
-- Confirmar progresso sem rodar `/sleepwell:sleepwell-status` repetidamente.
-- Detectar travamentos: se `iter` não muda em vários refreshs e `status =
-  running`, considere `/sleepwell:sleepwell-resume`.
+- Track an overnight loop in another terminal/tab.
+- Confirm progress without running `/sleepwell:sleepwell-status` repeatedly.
+- Detect hangs: if `iter` doesn't change across several refreshes and `status =
+  running`, consider `/sleepwell:sleepwell-resume`.

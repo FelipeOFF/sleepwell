@@ -1,36 +1,36 @@
 ---
 name: sleepwell-ci-monitor
-description: Verifica status do CI no início de cada wake e persiste sentinela em .sleepwell/ci-status.json. Classifica falhas (próprias vs. externas), atua como circuit breaker para a feedback loop de fix-CI e enforça guardrails (max_ci_attempts_per_branch, max_actions_minutes_per_run, max_actions_cost_usd).
+description: Checks CI status at the start of each wake and persists a sentinel in .sleepwell/ci-status.json. Classifies failures (own vs. external), acts as a circuit breaker for the fix-CI feedback loop and enforces guardrails (max_ci_attempts_per_branch, max_actions_minutes_per_run, max_actions_cost_usd).
 ---
 
 # sleepwell-ci-monitor
 
-Skill invocada **logo após o bootstrap e antes de compose-prompt** em cada
-iteração do `sleepwell-loop` (ver `lib/ritual.md §3`). Verifica o status do
-CI da branch atual, classifica falhas, persiste sentinela e decide se o
-loop deve invocar fix-CI, esperar ou abortar.
+Skill invoked **right after bootstrap and before compose-prompt** in each
+`sleepwell-loop` iteration (see `lib/ritual.md §3`). Checks CI status of
+the current branch, classifies failures, persists a sentinel and decides
+whether the loop should invoke fix-CI, wait, or abort.
 
 ## 1. Trigger
 
-- Invocada por `sleepwell-loop` no início de cada wake, após bootstrap e
-  antes da composição do prompt.
-- Também pode ser invocada manualmente via `/sleepwell:sleepwell-ci-status`.
+- Invoked by `sleepwell-loop` at the start of each wake, after bootstrap and
+  before prompt composition.
+- May also be invoked manually via `/sleepwell:sleepwell-ci-status`.
 
-## 2. Pré-condição
+## 2. Precondition
 
-Existe `state.pr_url` OU a branch sleepwell foi pushada (registrado em
-`state.last_push_sha`). Se nenhum dos dois, a skill não tem nada para
-monitorar e retorna `no_ci`.
+`state.pr_url` exists OR the sleepwell branch has been pushed (recorded in
+`state.last_push_sha`). If neither is true, the skill has nothing to
+monitor and returns `no_ci`.
 
 ## 3. Lockfile
 
-Antes de operar, esta skill **respeita** o lockfile `.sleepwell/ci-lock`
-criado pelo `sleepwell-loop`. Se o lock existe e contém um pid vivo
-DIFERENTE do pid atual → recusa rodar (mensagem: "ci-monitor: lock owned
-by pid <X>, abortando"). Se ausente ou pid morto → ok. Ver
+Before operating, this skill **respects** the `.sleepwell/ci-lock` lockfile
+created by `sleepwell-loop`. If the lock exists and contains a live pid
+DIFFERENT from the current pid → refuse to run (message: "ci-monitor: lock owned
+by pid <X>, aborting"). If absent or pid is dead → ok. See
 `lib/ritual.md §10`.
 
-## 4. Coleta
+## 4. Collection
 
 ```bash
 gh run list --branch "$BRANCH" --limit 5 --json \
@@ -38,23 +38,23 @@ gh run list --branch "$BRANCH" --limit 5 --json \
   --jq '.[0]' > .sleepwell/ci-run-latest.json
 ```
 
-Pega o run mais recente. Se nenhum run existe ainda → status `pending`
-(branch foi pushada mas o workflow ainda não disparou).
+Picks the most recent run. If no run exists yet → status `pending`
+(branch was pushed but the workflow hasn't started yet).
 
-### 4.1 Validação de SHA
+### 4.1 SHA validation
 
 ```
 latest = read .sleepwell/ci-run-latest.json
 if latest.headSha != state.last_push_sha:
-  status = "pending"   # push registrado mas run ainda não iniciou
-                       # OU run aponta para commit anterior
+  status = "pending"   # push recorded but run not started yet
+                       # OR run points to a previous commit
 ```
 
-Apenas runs cujo `headSha == state.last_push_sha` contam para a decisão.
+Only runs whose `headSha == state.last_push_sha` count toward the decision.
 
-### 4.2 Sentinela atômica
+### 4.2 Atomic sentinel
 
-Persiste em `.sleepwell/ci-status.json` via tmpfile + rename:
+Persist to `.sleepwell/ci-status.json` via tmpfile + rename:
 
 ```json
 {
@@ -75,7 +75,7 @@ echo "$payload" > "$tmp"
 mv "$tmp" .sleepwell/ci-status.json
 ```
 
-## 5. Decisão
+## 5. Decision
 
 ```
 if no_ci (sem PR e sem last_push_sha):
@@ -94,9 +94,9 @@ if conclusion == "success":
   return "green"
 
 if conclusion == "failure":
-  # Captura log do job que falhou.
+  # Capture log of the failed job.
   gh run view "$RUN_ID" --log-failed > .sleepwell/ci-failure-log.txt
-  # Cap em 100KB (truncate head se necessário).
+  # Cap at 100KB (truncate head if needed).
   truncate --size=100K .sleepwell/ci-failure-log.txt 2>/dev/null \
     || head -c 102400 .sleepwell/ci-failure-log.txt > .sleepwell/ci-failure-log.txt.tmp \
     && mv .sleepwell/ci-failure-log.txt.tmp .sleepwell/ci-failure-log.txt
@@ -104,82 +104,82 @@ if conclusion == "failure":
   ext = match_external_failure(.sleepwell/ci-failure-log.txt)
   if ext:
     log notes.md ("external_failure: <signal>")
-    return "external_failure"   # NÃO incrementa count, backoff 600s
+    return "external_failure"   # does NOT increment count, backoff 600s
   else:
     state.ci_attempts[branch].count++
     state.ci_attempts[branch].last_run_id = RUN_ID
-    state.ci_attempts[branch].actions_minutes_spent += <duração>
-    # Injeta o log na próxima iter (ver §6).
+    state.ci_attempts[branch].actions_minutes_spent += <duration>
+    # Inject the log into the next iter (see §6).
     if state.ci_attempts[branch].count >= state.max_ci_attempts_per_branch:
       return "ci_attempts_exceeded"
     return "fix"
 ```
 
-## 6. Injeção de log no próximo prompt
+## 6. Log injection into the next prompt
 
-Quando a skill retorna `fix`, o conteúdo de `.sleepwell/ci-failure-log.txt`
-(cap 100KB) é anexado ao prompt da próxima iteração na seção:
+When the skill returns `fix`, the content of `.sleepwell/ci-failure-log.txt`
+(cap 100KB) is appended to the next iteration's prompt under section:
 
 ```
 ## CI failure log (injected by sleepwell-ci-monitor)
 <log content>
 ```
 
-Isso permite que a iteração seguinte raciocine sobre o erro e tente
-corrigir. O loop limpa esse arquivo após uma iteração PASS.
+This lets the next iteration reason about the error and try to fix it.
+The loop clears this file after a PASS iteration.
 
-## 7. UI no /sleepwell:sleepwell-status
+## 7. UI in /sleepwell:sleepwell-status
 
-Quando `state.ci_green == true`, `/sleepwell:sleepwell-status` mostra ✅ ao lado da
-branch. Quando o último verdict foi `failure` ou `fix`, mostra ❌ com
-link para o run.
+When `state.ci_green == true`, `/sleepwell:sleepwell-status` shows a check next to the
+branch. When the latest verdict was `failure` or `fix`, shows an X with a
+link to the run.
 
-### 7.1 Detecção de falha externa
+### 7.1 External failure detection
 
-Regex sobre `.sleepwell/ci-failure-log.txt`:
+Regex over `.sleepwell/ci-failure-log.txt`:
 
 ```
 secret (expired|invalid|missing)|EAI_AGAIN|ENETUNREACH|getaddrinfo|registry.*\b50[023]\b|runner (offline|unavailable)|GitHub Actions (outage|degraded)
 ```
 
-Match → falha **externa**: o problema NÃO é do código sob teste. Não
-incrementa `ci_attempts.count`, log no notes, próxima iter espera 600s
-(backoff longo) em vez de fixar.
+Match → **external** failure: the problem is NOT in the code under test.
+Does not increment `ci_attempts.count`, logs to notes, next iter waits 600s
+(long backoff) instead of fixing.
 
-### 7.2 Cost de Actions
+### 7.2 Actions cost
 
-Usa `sleepwell-helper` se disponível (subcomando futuro
-`actions-cost`); fallback heurístico:
+Use `sleepwell-helper` if available (future `actions-cost` subcommand);
+heuristic fallback:
 
 ```
 duration_min = (run.updatedAt - run.createdAt) / 60
 state.ci_attempts[branch].actions_minutes_spent += duration_min
 ```
 
-Cost USD estimado = `Σ minutes * $0.008` (preço Linux runner público
-GitHub-hosted, abr 2026).
+Estimated USD cost = `Σ minutes * $0.008` (public Linux GitHub-hosted
+runner price, Apr 2026).
 
 ## 8. Abort gates
 
-A skill RETORNA o veredicto, mas o `sleepwell-loop` é quem aborta. Ver
-`lib/ritual.md §8.1` (cost guardrails de CI).
+The skill RETURNS the verdict, but `sleepwell-loop` is what aborts. See
+`lib/ritual.md §8.1` (CI cost guardrails).
 
-| Retorno                     | Ação do loop                                |
-|-----------------------------|---------------------------------------------|
-| `no_ci`                     | segue normalmente (sem PR/push ainda)       |
-| `green`                     | continua, marca state.ci_green = true       |
-| `pending`                   | skip iter, incrementa ci_waiting_iters      |
-| `wait_long`                 | sleep maior no ScheduleWakeup (≥600s)       |
-| `external_failure`          | wait 600s, re-poll (sem incrementar count)  |
-| `fix`                       | injeta log e invoca rotina de fix-CI        |
-| `ci_attempts_exceeded`      | finalize("ci_attempts_exceeded")            |
-| `actions_minutes_exceeded`  | finalize("actions_minutes_exceeded")        |
-| `actions_cost_exceeded`     | finalize("actions_cost_exceeded")           |
+| Return                      | Loop action                                  |
+|-----------------------------|----------------------------------------------|
+| `no_ci`                     | proceed normally (no PR/push yet)            |
+| `green`                     | continue, set state.ci_green = true          |
+| `pending`                   | skip iter, increment ci_waiting_iters        |
+| `wait_long`                 | longer sleep on ScheduleWakeup (≥600s)       |
+| `external_failure`          | wait 600s, re-poll (without incrementing)    |
+| `fix`                       | inject log and invoke fix-CI routine         |
+| `ci_attempts_exceeded`      | finalize("ci_attempts_exceeded")             |
+| `actions_minutes_exceeded`  | finalize("actions_minutes_exceeded")         |
+| `actions_cost_exceeded`     | finalize("actions_cost_exceeded")            |
 
 ## 9. State updates
 
-Sempre via tmpfile + rename (ver `lib/ritual.md §7.2`). Inicializa
-`state.ci_attempts[branch]` na 1ª falha:
+Always via tmpfile + rename (see `lib/ritual.md §7.2`). Initialize
+`state.ci_attempts[branch]` on the 1st failure:
 
 ```json
 {
@@ -192,14 +192,14 @@ Sempre via tmpfile + rename (ver `lib/ritual.md §7.2`). Inicializa
 
 ## 10. Edge cases
 
-- **`gh` ausente:** skill loga warning em `notes.md`
-  ("ci-monitor: gh CLI not found, skipping") e retorna `no_ci`. O loop
-  segue normalmente.
-- **Branch sem nenhum run:** `gh run list` retorna `[]` → status
-  `pending`, sentinela registra `run_id: null`.
-- **`gh` sem auth:** mesma resposta de `gh` ausente — warning + `no_ci`.
-- **`headSha` divergente:** novo push aconteceu mas Actions ainda não
-  disparou — status `pending` até o run aparecer. Não confundir com
-  failure de versão antiga.
-- **`databaseId` mesmo entre invocações com `pending`:** só incrementa
-  `ci_waiting_iters` quando `status == "in_progress"` E `headSha` bate.
+- **`gh` missing:** skill logs warning in `notes.md`
+  ("ci-monitor: gh CLI not found, skipping") and returns `no_ci`. Loop
+  proceeds normally.
+- **Branch with no runs:** `gh run list` returns `[]` → status
+  `pending`, sentinel records `run_id: null`.
+- **`gh` not authenticated:** same response as `gh` missing — warning + `no_ci`.
+- **Divergent `headSha`:** new push happened but Actions hasn't fired
+  yet — status `pending` until the run appears. Don't confuse with an
+  old-version failure.
+- **Same `databaseId` across `pending` invocations:** only increment
+  `ci_waiting_iters` when `status == "in_progress"` AND `headSha` matches.

@@ -104,3 +104,6 @@ bin/sleepwell-helper/target/
 # Rust
 target/
 
+
+# sleepwell loop state
+.sleepwell/

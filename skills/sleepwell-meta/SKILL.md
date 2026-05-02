@@ -1,29 +1,29 @@
 ---
 name: sleepwell-meta
-description: Use no bootstrap do sleepwell-loop para gerar uma calibração baseada nos runs anteriores. Versão v2 consome `sleepwell-helper calibrate` e persiste prediction_profile em state.json; fallback grácil mantém calibration.md textual antigo.
+description: Use during sleepwell-loop bootstrap to generate a calibration based on previous runs. v2 consumes `sleepwell-helper calibrate` and persists prediction_profile in state.json; graceful fallback keeps the legacy textual calibration.md.
 ---
 
 # sleepwell-meta (v2)
 
-> **Lockfile guard.** Antes de operar, checa `.sleepwell/ci-lock`: se
-> existe e contém pid vivo DIFERENTE do pid atual, recusa
-> (`sleepwell-meta: lock owned by pid <X>`). Se ausente ou pid morto,
-> ok. Ver `lib/ritual.md §10`.
+> **Lockfile guard.** Before operating, check `.sleepwell/ci-lock`: if it
+> exists and contains a live pid DIFFERENT from the current pid, refuse
+> (`sleepwell-meta: lock owned by pid <X>`). If absent or pid is dead,
+> ok. See `lib/ritual.md §10`.
 
-Meta-learning leve do sleepwell. No bootstrap (e por pedido explícito), lê o
-histórico de runs sleepwell anteriores e produz **dois artefatos**:
+Lightweight meta-learning for sleepwell. On bootstrap (and on explicit request), reads the
+history of previous sleepwell runs and produces **two artifacts**:
 
-1. **`state.prediction_profile`** (estruturado, v3) — consumido pelo
-   `sleepwell-loop` para influenciar o prompt das iters.
-2. **`.sleepwell/calibration.md`** (textual, legado) — mantido como fallback
-   humano-legível quando o helper Rust não está disponível.
+1. **`state.prediction_profile`** (structured, v3) — consumed by
+   `sleepwell-loop` to influence the iteration prompts.
+2. **`.sleepwell/calibration.md`** (textual, legacy) — kept as a
+   human-readable fallback when the Rust helper is unavailable.
 
-## Quando ativar
+## When to activate
 
-- Bootstrap do `sleepwell-loop` (1ª iter), se `--no-meta` não for passado.
-- Pedido explícito do usuário: "atualiza calibration".
+- `sleepwell-loop` bootstrap (1st iter), if `--no-meta` is not passed.
+- Explicit user request: "update calibration".
 
-## Pipeline preferencial — `sleepwell-helper calibrate`
+## Preferred pipeline — `sleepwell-helper calibrate`
 
 ```bash
 if command -v sleepwell-helper >/dev/null 2>&1; then
@@ -33,7 +33,7 @@ if command -v sleepwell-helper >/dev/null 2>&1; then
 fi
 ```
 
-Saída esperada (JSON em stdout, salvo em `state.prediction_profile`):
+Expected output (JSON on stdout, saved into `state.prediction_profile`):
 
 ```json
 {
@@ -53,12 +53,12 @@ Saída esperada (JSON em stdout, salvo em `state.prediction_profile`):
 }
 ```
 
-`overall` = % de commits aprovados pelo usuário (mantidos na base, não
-descartados). `by_category` quebra por mode e/ou conventional type.
-`trusted`/`distrusted` saem do top/bottom de `by_category` (threshold default
+`overall` = % of commits approved by the user (kept on base, not
+discarded). `by_category` breaks down by mode and/or conventional type.
+`trusted`/`distrusted` come from the top/bottom of `by_category` (default thresholds
 ≥0.75 trusted, ≤0.55 distrusted).
 
-## Persistência atômica
+## Atomic persistence
 
 ```bash
 tmp=$(mktemp .sleepwell/state.json.XXXXXX)
@@ -67,59 +67,59 @@ jq --argjson p "$profile_json" '.prediction_profile = $p' \
 mv "$tmp" .sleepwell/state.json
 ```
 
-Ver `lib/ritual.md §7.2`.
+See `lib/ritual.md §7.2`.
 
-## Injeção no prompt do loop
+## Loop prompt injection
 
-A cada iter, o `sleepwell-loop` consulta `state.prediction_profile` e injeta
-no prompt:
+On each iter, `sleepwell-loop` queries `state.prediction_profile` and injects
+into the prompt:
 
-- Se `state.mode in trusted` → adiciona linha:
-  `## Calibração\n- Mode "<mode>" tem histórico positivo (acurácia <X>%, n=<N>).
-  Encoraja-se profundidade.`
-- Se `state.mode in distrusted` → adiciona linha:
-  `## Calibração\n- Mode "<mode>" tem histórico negativo (acurácia <X>%, n=<N>).
-  Cautela: prefira diff pequeno e reversível.`
-- Se `state.mode` não está em nenhum → omite seção (sinal insuficiente).
+- If `state.mode in trusted` → add line:
+  `## Calibration\n- Mode "<mode>" has positive history (accuracy <X>%, n=<N>).
+  Depth is encouraged.`
+- If `state.mode in distrusted` → add line:
+  `## Calibration\n- Mode "<mode>" has negative history (accuracy <X>%, n=<N>).
+  Caution: prefer small, reversible diffs.`
+- If `state.mode` is in neither → omit section (insufficient signal).
 
-## Fallback grácil — sem helper
+## Graceful fallback — no helper
 
-Quando `command -v sleepwell-helper` falha:
+When `command -v sleepwell-helper` fails:
 
-1. **NÃO** tenta replicar parsing de git log em bash (a versão v1 fazia isso
-   via grep — removida nesta v2 por ser frágil e duplicar lógica do helper).
-2. Mantém o comportamento textual legado em `.sleepwell/calibration.md`:
-   - Se já existir `.sleepwell/calibration.md` (de run anterior), só lê e
-     repassa para o caller.
-   - Se ausente, cria uma versão mínima:
+1. Do **NOT** try to replicate git log parsing in bash (the v1 version did this
+   via grep — removed in v2 because it was fragile and duplicated helper logic).
+2. Keep the legacy textual behavior in `.sleepwell/calibration.md`:
+   - If `.sleepwell/calibration.md` already exists (from a previous run), just read it
+     and pass it through to the caller.
+   - If absent, create a minimal version:
      ```markdown
-     # Calibration — extraída em <ISO>
-     _sleepwell-helper indisponível; calibration estruturada pulada._
+     # Calibration — extracted on <ISO>
+     _sleepwell-helper unavailable; structured calibration skipped._
 
-     Sem sinais por categoria. Loop opera sem ajuste de profile.
+     No per-category signals. Loop runs without profile adjustment.
      ```
-3. **NÃO** escreve `state.prediction_profile` quando em fallback (deixa o campo
-   ausente — o loop trata ausência como neutro).
+3. Do **NOT** write `state.prediction_profile` in fallback (leave the field
+   absent — the loop treats absence as neutral).
 
-Logue `meta: helper ausente, prediction_profile pulado` no notes.md.
+Log `meta: helper missing, prediction_profile skipped` in notes.md.
 
-## Limites e edge cases
+## Limits and edge cases
 
-- Sem `.sleepwell/archive/` ou repo recém-iniciado: helper retorna
-  `n_runs: 0`; persiste o profile mesmo assim, e o loop trata `n_runs < 3`
-  como "sem sinal" (não injeta).
-- Runs muito antigas (>60 dias): o helper já pondera com peso menor; a skill
-  apenas confia no output.
-- Privacidade: tudo local. Nada sai do disco.
+- No `.sleepwell/archive/` or freshly-initialized repo: helper returns
+  `n_runs: 0`; persist the profile anyway, and the loop treats `n_runs < 3`
+  as "no signal" (does not inject).
+- Very old runs (>60 days): the helper already weights them lower; the skill
+  just trusts the output.
+- Privacy: all local. Nothing leaves the disk.
 
-## Output curto pro caller
+## Short output for the caller
 
-Após persistir, retorne uma string de 1 linha:
-`"meta: prediction_profile atualizado (overall=X%, n=N, trusted=[...], distrusted=[...])"`.
+After persisting, return a 1-line string:
+`"meta: prediction_profile updated (overall=X%, n=N, trusted=[...], distrusted=[...])"`.
 
-Em fallback: `"meta: helper ausente, calibration textual mantida"`.
+In fallback: `"meta: helper missing, textual calibration retained"`.
 
-## Quando NÃO calibrar
+## When NOT to calibrate
 
-- Flag `--no-meta` no `/sleepwell:sleepwell` → pula completamente.
-- `state.prediction_profile.calibrated_at` < 24h → reusa o existente.
+- `--no-meta` flag on `/sleepwell:sleepwell` → skip entirely.
+- `state.prediction_profile.calibrated_at` < 24h → reuse existing.

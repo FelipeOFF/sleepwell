@@ -1,5 +1,7 @@
 # sleepwell
 
+> **Languages:** [English](README.md) · [Português (Brasil)](README.pt-BR.md)
+
 Autonomous overnight loop for Claude Code. Disciplined iteration (isolated branch, atomic commit per iteration, automatic rollback on failure) combined with adaptive behavior (4 operating modes, optional voice matching, cross-run meta-learning).
 
 Unlike external `claude -p` wrappers, sleepwell runs **inside** an active Claude Code session — keeping the prompt cache hot, MCP servers alive, and skills composable across iterations.
@@ -184,8 +186,8 @@ A run can be broken into **internal sub-phases** living under
 as before.
 
 ```
-/sleepwell-phase-start "<slug>"          # opens a new phase (only one active at a time)
-/sleepwell-phase-complete [--abandon]    # closes the active phase, generating VERIFICATION.md
+/sleepwell:sleepwell-phase-start "<slug>"          # opens a new phase (only one active at a time)
+/sleepwell:sleepwell-phase-complete [--abandon]    # closes the active phase, generating VERIFICATION.md
 ```
 
 When a phase is active, the loop injects its `PLAN.md` and recent
@@ -201,14 +203,14 @@ human-readable slug derived from the intent is preserved separately in
 keeps the branch namespace tidy.
 
 When a run finishes (`status == done`), the loop invokes
-`/sleepwell-pr` automatically and persists the resulting PR URL into
+`/sleepwell:sleepwell-pr` automatically and persists the resulting PR URL into
 `state.pr_url`. The PR body includes intent, mode, iteration counts,
 cost in USD, latest evaluator rating, and the commit list.
 
 ```bash
-/sleepwell:sleepwell "<intent>"             # default: cria PR ao final
-/sleepwell:sleepwell "<intent>" --no-pr     # roda mas não cria PR
-/sleepwell:sleepwell "<intent>" --draft-pr  # cria PR como draft
+/sleepwell:sleepwell "<intent>"             # default: creates PR on finish
+/sleepwell:sleepwell "<intent>" --no-pr     # runs but does not create PR
+/sleepwell:sleepwell "<intent>" --draft-pr  # creates PR as draft
 ```
 
 Auto-merge is **disabled by default**. To enable conditional auto-merge,
