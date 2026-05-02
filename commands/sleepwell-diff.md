@@ -12,7 +12,7 @@ Mostra o que o loop sleepwell produziu até agora.
 1. Lê `.sleepwell/state.json` para descobrir `branch`. Se ausente → erro: "nenhum loop sleepwell aqui".
 2. Determina base:
    - `--base <branch>` se passado.
-   - Senão tenta `main`, depois `master`.
+   - Senão usa o helper `sleepwell_base_branch` (detecta `main` / `master` / `develop` na ordem; ver `lib/ritual.md §7.1`).
 3. Roda:
    ```bash
    # contagem de commits

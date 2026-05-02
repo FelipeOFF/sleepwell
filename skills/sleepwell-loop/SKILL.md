@@ -58,7 +58,7 @@ Skill central do plugin `sleepwell`. Executa **uma iteração** do loop autônom
      PASS         FAIL
        │           │
        ▼           ▼
-  commit+notes  reset --hard HEAD
+  commit+notes  reset+clean -fd
   reset fail    failures++
   counter       backoff exp
        │           │
@@ -162,7 +162,8 @@ ${cat sleepwell/lib/modes/${mode}.md}
 ${tail -n 80 .sleepwell/notes.md}
 
 ## Diff acumulado da branch
-${git diff --stat $(git merge-base HEAD main)..HEAD}
+${BASE=$(sleepwell_base_branch); git diff --stat $(git merge-base HEAD "$BASE")..HEAD}
+# `sleepwell_base_branch` detecta main/master/develop — ver lib/ritual.md §7.1.
 
 ## Próxima ação
 Pense numa ÚNICA mudança coerente que avance a intent. Implemente-a agora.
@@ -208,7 +209,7 @@ Tempo limite por comando: 5min. Se travar, considera fail.
 4. `state.consecutive_failures = 0`, `state.total_passes++`.
 
 **Se FAIL:**
-1. `git reset --hard HEAD` (descarta mudanças desta iter).
+1. `git reset --hard HEAD && git clean -fd` (descarta mudanças desta iter, incluindo arquivos não-rastreados criados — ver `lib/ritual.md §1`).
 2. Append em `notes.md`:
    ```
    ## Iter ${iter+1} — FAIL — ${ISO}
@@ -245,7 +246,7 @@ Quando aborta ou conclui:
    modo:   <mode>
    branch: sleepwell/<slug>
    iters:  ${total_passes} pass / ${total_fails} fail
-   commits: ${git log sleepwell/<slug> ^main --oneline | wc -l}
+   commits: ${git log sleepwell/<slug> ^$(sleepwell_base_branch) --oneline | wc -l}
 
    próximos passos:
    - revisar:  /sleepwell-diff

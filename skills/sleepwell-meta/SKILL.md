@@ -20,16 +20,17 @@ Meta-learning leve do sleepwell. Antes de uma nova run, lê o histórico das run
    ```
    Pega as 5 últimas branches sleepwell (ou todas se <5).
 
-2. **Para cada branch sleepwell anterior:**
-   - Lista commits da branch que NÃO estão em main:
+2. **Para cada branch sleepwell anterior** (use o helper `sleepwell_base_branch` para detectar a base — `main` / `master` / `develop`; ver `lib/ritual.md §7.1`):
+   - Lista commits da branch que NÃO estão na base:
      ```bash
-     git log --oneline <branch>..main → o que foi pra main
-     git log --oneline main..<branch>  → o que ficou só na branch
+     BASE=$(sleepwell_base_branch)
+     git log --oneline <branch>..$BASE  # o que foi pra base
+     git log --oneline $BASE..<branch>  # o que ficou só na branch
      ```
    - Classifica:
-     - **Cherry-picked/merged em main** → usuário aprovou.
+     - **Cherry-picked/merged na base** → usuário aprovou.
      - **Ficou na branch** → não foi aprovado (descartado, abandonado, ou pendente).
-     - **Squash merge:** detecta via mensagem `[sleepwell-iter:N]` no log do main.
+     - **Squash merge:** detecta via mensagem `[sleepwell-iter:N]` no log da base.
 
 3. **Categoriza commits** pelo tipo (do `<type>` do conventional commit) e pelo conteúdo:
    - feat / refactor / fix / chore / test / docs.

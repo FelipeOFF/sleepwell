@@ -39,5 +39,12 @@ Reverte a última iteração com sucesso da branch sleepwell.
 ## Salvaguardas
 
 - **Nunca** roda em main/master/develop — aborta com erro.
-- **Nunca** descarta commits que já foram pushados (verifica via `git log @{u}..` se há tracking remoto).
+- **Nunca** descarta commits que já foram pushados. Antes do check `git log @{u}..`, valide upstream — sem upstream configurado, pula o check (não bloqueia o undo):
+  ```bash
+  if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+    pushed=$(git log @{u}..)
+    # se houver commits pushados no range a reverter → abortar com erro
+  fi
+  # sem upstream → branch local; undo é seguro. Ver lib/ritual.md §7.2.
+  ```
 - Se loop está em `status == "running"`, sugere também `/sleepwell-stop` antes do undo (pra não conflitar com próximo wakeup).

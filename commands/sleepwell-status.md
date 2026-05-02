@@ -27,7 +27,8 @@ iniciado: <state.started_at>
 stop-when: <state.stop_when or "—">
 
 últimos commits da branch:
-$(git log --oneline -5 <state.branch> ^main 2>/dev/null)
+$(BASE=$(sleepwell_base_branch); git log --oneline -5 <state.branch> ^"$BASE" 2>/dev/null)
+# `sleepwell_base_branch` detecta main/master/develop — ver lib/ritual.md §7.1.
 
 últimas linhas do notes.md:
 $(tail -n 20 .sleepwell/notes.md 2>/dev/null)

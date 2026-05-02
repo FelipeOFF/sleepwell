@@ -6,7 +6,7 @@ Documentação canônica do ritual de iteração. A skill `sleepwell-loop` imple
 
 1. **Uma iteração = uma unidade lógica = um commit.** Não empilha, não amend.
 2. **Verde antes de pass.** Lint + types + tests devem passar pra commitar.
-3. **Falhou? Reset.** `git reset --hard HEAD` descarta tentativa. Próxima iter recomeça do zero da iter anterior bem-sucedida.
+3. **Falhou? Reset.** `git reset --hard HEAD && git clean -fd` descarta tentativa (incluindo arquivos não-rastreados criados na iter falha). Próxima iter recomeça do zero da iter anterior bem-sucedida.
 4. **Branch isolada sempre.** Nunca toca main/master/develop.
 5. **Notes append-only.** O `notes.md` é o "diário de bordo" do loop — só cresce.
 6. **State é fonte da verdade.** `state.json` é o que o loop consulta entre wakeups.
@@ -72,6 +72,7 @@ Documentação canônica do ritual de iteração. A skill `sleepwell-loop` imple
     delay = 60s
   else:
     git reset --hard HEAD
+    git clean -fd                     # remove arquivos não-rastreados criados na iter
     append notes.md (FAIL, error)
     state.consecutive_failures++
     state.total_fails++
@@ -126,7 +127,46 @@ Dentro de uma iteração, a skill `sleepwell-loop` pode invocar:
 
 Contexto mantido entre invocações via cache de prompt.
 
-## 7. Recuperação de falhas catastróficas
+## 7. Helpers
+
+### 7.1 Detector de base branch
+
+Nunca hardcode `main`. Use o helper abaixo para detectar a base correta (`main`, `master`, `develop`) — todos os comandos e skills devem referenciar esta lógica:
+
+```bash
+# Detecta a base branch do repositório.
+# Ordem: HEAD do remote origin → main local → master local → develop.
+sleepwell_base_branch() {
+  local base
+  base=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
+          | sed 's@^refs/remotes/origin/@@')
+  if [ -z "$base" ]; then
+    if   git rev-parse --verify --quiet main    >/dev/null; then base=main
+    elif git rev-parse --verify --quiet master  >/dev/null; then base=master
+    elif git rev-parse --verify --quiet develop >/dev/null; then base=develop
+    fi
+  fi
+  echo "$base"
+}
+```
+
+Usar em qualquer lugar que precise de `merge-base`, range `..`, exclusão `^<base>`. Lugares já adaptados: `skills/sleepwell-loop` (diff acumulado), `commands/sleepwell-status`, `commands/sleepwell-diff`, `skills/sleepwell-meta`.
+
+### 7.2 Guard de upstream em undo
+
+Antes de checar `git log @{u}..` (detectar commits já pushados), verifique se há upstream configurado. Sem o guard, branches locais sem tracking remoto fazem o `git log @{u}..` falhar e bloqueiam o undo erroneamente.
+
+```bash
+if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+  # tem upstream — checa @{u}..
+  pushed=$(git log @{u}..)
+fi
+# sem upstream → pular o check; undo é seguro.
+```
+
+Branches sleepwell são locais por default, então normalmente o guard pula o check.
+
+## 8. Recuperação de falhas catastróficas
 
 Se o processo CC for derrubado no meio de uma iter:
 - `state.json` está parcialmente atualizado (o último write é atômico via tmpfile + rename).
