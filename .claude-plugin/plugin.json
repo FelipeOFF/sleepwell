@@ -18,5 +18,18 @@
     "agent-harness",
     "voice-matching",
     "meta-learning"
-  ]
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/block-push.sh"
+          }
+        ]
+      }
+    ]
+  }
 }
