@@ -140,6 +140,13 @@ Itens em progresso ou planejados:
 - **Modo `review-only`** — itera apenas com sugestões/diffs propostos, sem aplicar (útil pra revisão pré-merge).
 - **Hook `PreToolUse` de escopo** — bloqueia edição fora do worktree/branch durante o loop, reforçando isolamento.
 
+## Troubleshooting
+
+Cenários comuns (state corrompido, worktree órfão, custo descontrolado, push
+bloqueado pelo hook, voice cache stale, etc.) estão documentados em
+[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) com **Sintomas /
+Diagnóstico / Remediação**.
+
 ## Inspirações
 
 - [yail259/overnight](https://github.com/yail259/overnight) — 4 modos (tidy/refine/build/radical), voice matching, meta-learning.
