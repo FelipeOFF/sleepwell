@@ -1,0 +1,32 @@
+[package]
+name = "sleepwell-helper"
+version = "0.1.0"
+edition = "2021"
+description = "Helper binary for the Sleepwell plugin: parses LLM JSONL transcripts, computes token costs, hashes content, watches files, evaluates and calibrates outputs."
+license = "MIT"
+
+[[bin]]
+name = "sleepwell-helper"
+path = "src/main.rs"
+
+[lib]
+name = "sleepwell_helper"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+anyhow = "1.0"
+regex = "1.10"
+blake3 = "1.5"
+notify = "6"
+notify-debouncer-mini = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+ctrlc = "3.4"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3"

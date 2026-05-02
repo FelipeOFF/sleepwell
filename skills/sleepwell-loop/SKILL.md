@@ -234,6 +234,54 @@ Tempo limite por comando: 5min. Se travar, considera fail.
 3. `state.consecutive_failures++`, `state.total_fails++`.
 4. Backoff: próximo wakeup com `delay = min(270, 60 * 2^failures)`.
 
+### 6.5 Poda automática de contexto
+
+Após telemetry (passo 7 abaixo), avalie pressão de contexto da iteração
+recém-concluída. Threshold default: `80%` do `model_context_window`.
+Configurável via `state.context_threshold_pct` (campo opcional v3).
+
+**Tabela de janelas de contexto (inline):**
+
+| Modelo            | Window (input tokens) |
+|-------------------|----------------------:|
+| Claude Sonnet     | 200000                |
+| Claude Opus       | 200000                |
+| Claude Haiku      | 200000                |
+| Sonnet 1M (beta)  | 1000000               |
+| Opus 1M (beta)    | 1000000               |
+| Codex / GPT-5     | 200000                |
+
+Se desconhecido, fallback `200000`.
+
+**Disparo:**
+
+```
+threshold_pct = state.context_threshold_pct ?? 80
+window        = lookup(model_id) || 200000
+limit         = window * threshold_pct / 100
+
+if iter.tokens_used.input > limit:
+  # 1. Truncar notes.md para últimas 20 entries (preservar header).
+  header  = primeiras linhas até a primeira "## Iter " (exclusive)
+  entries = blocos "## Iter ..." — pega os últimos 20
+  rewrite notes.md = header + "\n\n" + last20
+
+  # 2. Cache de last_diff > 5MB → remover.
+  if exists(.sleepwell/last_diff) and size > 5MB:
+    rm .sleepwell/last_diff
+
+  # 3. Log do evento no notes.md.
+  append:
+    "## Poda — <ISO ts>: contexto reduzido (input=<N> > limit=<L>)"
+```
+
+A poda é registrada como entry própria em `notes.md` (linha
+`## Poda — <ts>`) para auditoria — futuras inspeções (recap, suggest)
+sabem que o histórico foi truncado.
+
+Idempotente: se o limite continuar excedido em iters seguintes, cada
+poda re-trunca para últimas 20 — sem efeito perverso.
+
 ### 7. Update state
 
 Escreva state.json novo (incluindo `last_iter_at`, `iteration++`). Atualize também os campos de telemetria v2: incremente `tokens_used.{input,output,cache_read,cache_creation}` e recalcule `cost_so_far_usd` a partir do consumo da iteração. Nunca mexa nas flags persistidas (`worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`) — elas são imutáveis após o bootstrap.
