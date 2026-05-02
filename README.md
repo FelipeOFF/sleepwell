@@ -32,6 +32,43 @@ ln -s "$(pwd)/sleepwell" ~/.claude/plugins/sleepwell
 
 Restart Claude Code. The `/sleepwell*` commands appear.
 
+### Helper binary (auto-install)
+
+The plugin uses a small Rust helper (`sleepwell-helper`) for fast JSONL
+parsing, multi-LLM cost calculation, hashing, file watching, and
+calibration. On first session a `SessionStart` hook
+(`hooks/ensure-helper.sh`) downloads the right prebuilt binary for your
+platform from GitHub Releases and installs it under
+`~/.local/share/sleepwell/bin/` (or `%LOCALAPPDATA%\sleepwell\bin\` on
+Windows). Already-installed binaries are kept; re-runs are a no-op.
+
+Manual control:
+
+```
+/sleepwell-doctor                       # diagnose env + install if missing
+/sleepwell-doctor --reinstall           # force redownload latest
+/sleepwell-doctor --version bin-v0.5.0  # pin a specific version
+```
+
+Supported prebuilt targets:
+
+| OS | Arch | Target |
+|---|---|---|
+| macOS | aarch64 (Apple Silicon) | `aarch64-apple-darwin` |
+| Linux | x86_64 | `x86_64-unknown-linux-gnu` |
+| Linux | aarch64 | `aarch64-unknown-linux-gnu` |
+| Windows | x86_64 | `x86_64-pc-windows-msvc` |
+
+If your platform isn't covered, build locally:
+
+```bash
+cargo install --path bin/sleepwell-helper
+```
+
+The helper is **optional** — every skill has a `bash`/`jq` fallback. Its
+absence only reduces precision (cost telemetry, calibration), it does
+not break the loop.
+
 ## Quick start
 
 ```
