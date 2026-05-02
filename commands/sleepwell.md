@@ -1,6 +1,6 @@
 ---
 description: Inicia (ou retoma) o loop autônomo sleepwell. Combina disciplina gnhf (branch isolada, commit atômico, rollback em fail) com adaptação overnight (voice matching, modos, meta-learning). Roda dentro da sessão CC com cache quente entre iterações.
-argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>]
+argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condição>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>]
 ---
 
 # /sleepwell
@@ -16,7 +16,8 @@ Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint 
 --intent-file <path>                  opcional, alternativa para intent longo (lê arquivo)
 --mode tidy|refine|build|radical      default: refine
 --max-iter <N>                        default: 20
---max-cost <USD>                      opcional, orçamento máximo em USD (abort gate)
+--max-cost <USD>                      opcional, orçamento máximo total em USD (abort gate)
+--max-cost-per-iter <USD>             opcional, guardrail per-iter (iter que excede aborta como FAIL e entra em backoff; não conta como abort total — ver lib/ritual.md §8.1)
 --stop-when "<condição NL>"           opcional
 --dry-run                             opcional (não commita)
 --no-worktree                         opcional (default: usa worktree)
@@ -25,7 +26,8 @@ Inicia ou retoma o loop autônomo. Use a skill `sleepwell-loop` como entrypoint 
 ```
 
 Todas as flags são **persistidas no `state.json`** no bootstrap (`worktree_enabled`,
-`no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`) — assim retomadas via
+`no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`,
+`max_cost_per_iter_usd`) — assim retomadas via
 `ScheduleWakeup` preservam o setup escolhido. Ver `lib/state-schema.json` (v2)
 e `lib/ritual.md §8`.
 

@@ -165,6 +165,12 @@
       "default": null,
       "description": "Orçamento configurado via --max-cost <USD>. Quando cost_so_far_usd >= cost_budget_usd → abort. v2."
     },
+    "max_cost_per_iter_usd": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "default": null,
+      "description": "Cost guardrail per-iter (--max-cost-per-iter <USD>). Iter que excede esse custo aborta como FAIL e entra em backoff exponencial; não conta como abort total. Ver lib/ritual.md §8.1. v2."
+    },
     "voice_profile_at": {
       "type": ["string", "null"],
       "format": "date-time",

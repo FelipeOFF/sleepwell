@@ -214,6 +214,30 @@ if state.cost_budget_usd != null and
    → finalize("cost", abort_reason="cost budget reached")
 ```
 
+#### Cost guardrail per-iter
+
+Quando `state.max_cost_per_iter_usd` está setado (via `--max-cost-per-iter
+<USD>`), medimos o **delta de custo da iter atual** (diferença entre
+`cost_so_far_usd` antes e depois da telemetria). Se o delta excede o limite:
+
+```
+delta = cost_so_far_usd_after - cost_so_far_usd_before
+if state.max_cost_per_iter_usd != null and
+   delta > state.max_cost_per_iter_usd
+   → mark iter as FAIL
+   → git reset --hard HEAD && git clean -fd
+   → state.consecutive_failures++
+   → state.total_fails++
+   → backoff exponencial (mesma fórmula do FAIL normal: min(270, 60*2^failures))
+   → NÃO incrementa abort_total; o loop continua até consecutive_failures >= 3
+     ou até qualquer outro abort gate (max_iter, cost_budget_usd, stop_when).
+```
+
+Racional: per-iter é um **guardrail**, não um corte. Uma iter cara não deve
+matar o loop inteiro — pode ser uma iter outlier. Mas falhas seguidas (3
+caras em sequência) caem no abort de `consecutive_failures >= 3` e cortam
+naturalmente.
+
 ## 9. Recuperação de falhas catastróficas
 
 Se o processo CC for derrubado no meio de uma iter:
