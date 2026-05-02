@@ -75,10 +75,10 @@ pub fn render(dir: &Path, workflow_filter: Option<&str>) -> Result<String> {
             .and_then(|s| s.to_str())
             .unwrap_or("workflow")
             .to_string();
-        let raw = fs::read_to_string(path)
-            .with_context(|| format!("reading {}", path.display()))?;
-        let doc: Value = serde_yaml::from_str(&raw)
-            .with_context(|| format!("parsing {}", path.display()))?;
+        let raw =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let doc: Value =
+            serde_yaml::from_str(&raw).with_context(|| format!("parsing {}", path.display()))?;
 
         if !triggers_push_or_pr(&doc) {
             continue;
@@ -122,9 +122,7 @@ pub fn render(dir: &Path, workflow_filter: Option<&str>) -> Result<String> {
     }
 
     if emitted == 0 {
-        buf.push_str(
-            "# (no workflows matched push/pull_request triggers / filter)\n",
-        );
+        buf.push_str("# (no workflows matched push/pull_request triggers / filter)\n");
     }
     Ok(buf)
 }
@@ -160,11 +158,17 @@ fn emit_step(buf: &mut String, step: &Value) {
         .and_then(|v| v.as_str())
         .unwrap_or("(unnamed)");
 
-    if let Some(uses) = map.get(Value::String("uses".into())).and_then(|v| v.as_str()) {
+    if let Some(uses) = map
+        .get(Value::String("uses".into()))
+        .and_then(|v| v.as_str())
+    {
         buf.push_str(&format!("# step: {} — uses: {}\n", name, uses));
         return;
     }
-    if let Some(run) = map.get(Value::String("run".into())).and_then(|v| v.as_str()) {
+    if let Some(run) = map
+        .get(Value::String("run".into()))
+        .and_then(|v| v.as_str())
+    {
         buf.push_str(&format!("# step: {}\n", name));
         for line in run.lines() {
             buf.push_str(line);
