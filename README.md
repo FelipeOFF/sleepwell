@@ -132,6 +132,23 @@ Detects the active runtime (Claude Code or Codex CLI), parses session JSONL, acc
 
 Common scenarios (corrupted state, orphaned worktree, runaway cost, stale voice cache, blocked push) are documented in [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) with **Symptoms / Diagnosis / Remediation**.
 
+## Phases (internal)
+
+A run can be broken into **internal sub-phases** living under
+`.sleepwell/phases/<NN>-<slug>/`. Each phase has its own `PLAN.md`,
+`EXECUTION.md`, and `VERIFICATION.md`. Tracked via `state.phases` in
+`state.json`. Phases are optional — runs without phases work exactly
+as before.
+
+```
+/sleepwell-phase-start "<slug>"          # opens a new phase (only one active at a time)
+/sleepwell-phase-complete [--abandon]    # closes the active phase, generating VERIFICATION.md
+```
+
+When a phase is active, the loop injects its `PLAN.md` and recent
+`EXECUTION.md` into each iteration prompt and evaluates acceptance
+criteria after every iter. See [`lib/ritual.md` §9](lib/ritual.md).
+
 ## Compatibility
 
 - Claude Code (primary target).

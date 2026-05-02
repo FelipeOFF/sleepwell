@@ -47,9 +47,14 @@ Strangler-fig friendly. Cada iter avança UM degrau:
 
 ## Recomendação
 
-Antes de iniciar `radical`, considere invocar:
+Antes de iniciar `radical`, monte o plano em uma sub-fase
+(`/sleepwell-phase-start "plan-radical"`) e preencha critérios de aceite
+em `PLAN.md`. `radical` sem plano costuma virar churn.
 
-- `gitnexus-impact-analysis` — entender raio da mudança.
-- `superpowers:writing-plans` — escrever um plano antes de iterar.
+<!--
+Inspirações (não obrigatórias em runtime):
+- gitnexus-impact-analysis — entender raio da mudança.
+- superpowers:writing-plans — disciplina de planejamento prévio.
+A sub-fase interna (lib/ritual.md §9) cumpre o mesmo papel sem dependência externa.
+-->
 
-`radical` sem plano costuma virar churn.

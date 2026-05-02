@@ -87,7 +87,7 @@ Detecte: `.sleepwell/state.json` não existe E há `--intent "<text>"` no input.
 1. Parse args do `/sleepwell`: intent (ou `--intent-file <path>`), mode (default `refine`), max-iter (default 20), `--max-cost <USD>` (opcional), stop-when, dry-run, worktree (default true), no-voice, no-meta. Todas as flags são **gravadas no `state.json`** (campos `worktree_enabled`, `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`) para que retomadas via `ScheduleWakeup` preservem o setup.
 2. Slug do intent → kebab-case curto, ex: `refactor-auth-middleware`.
 3. **Worktree:**
-   - Se `worktree=true`: usa skill `superpowers:using-git-worktrees` ou cria `git worktree add ../<repo>-wt/sleepwell-<slug> -b sleepwell/<slug>`.
+   - Se `worktree=true`: cria `git worktree add ../<repo>-wt/sleepwell-<slug> -b sleepwell/<slug>` (vendored stub em `skills/vendor/git-worktrees`).
    - Senão: `git checkout -b sleepwell/<slug>` (abortar se branch existe).
 4. **Voice profile** (se `no-voice=false`):
    - Invoque skill `sleepwell-profile`.
@@ -183,6 +183,30 @@ ${BASE=$(sleepwell_base_branch); git diff --stat $(git merge-base HEAD "$BASE").
 Pense numa ÚNICA mudança coerente que avance a intent. Implemente-a agora.
 Mantenha escopo cirúrgico — uma iteração = uma unidade lógica = um commit.
 ```
+
+### 3.5 Gate de fase ativa
+
+Antes de executar (passo 4), checa `state.phases`:
+
+- Se há item com `status == "active"`:
+  - Lê `<plan_path>` e adiciona ao prompt seção `## Fase em curso`.
+  - Lê últimas 30 linhas de `<execution_path>` e adiciona seção
+    `## Execução da fase (recente)`.
+  - Mantém o prompt da iteração focado nos critérios da fase.
+- Sem fase ativa: comportamento original (sem injeção extra).
+
+Após PASS (passo 6, decisão), além de append em `notes.md`, espelha a
+mesma linha em `<execution_path>` para que a fase tenha seu próprio log.
+
+Após cada iter (PASS ou FAIL), avalia se os critérios da fase ativa
+estão cumpridos (raciocínio curto sobre `PLAN.md` + diff acumulado da
+fase). Se sim:
+
+- Modo interativo: pergunta ao usuário "fase completa — abrir nova?".
+- Modo autônomo: executa `/sleepwell-phase-complete` automaticamente e
+  oferece próximas via `/sleepwell-suggest`.
+
+Ver `lib/ritual.md §9`.
 
 ### 4. Execute
 
@@ -328,15 +352,21 @@ Quando aborta ou conclui:
 - **Verify cmd não encontrado:** marca em notes.md, considera "skip" não fail.
 - **Ctrl+C/sleepwell-stop:** o slash `/sleepwell-stop` seta `state.status = "stopped"` — abort check pega na próxima iter.
 
-## Skills compostas
+## Skills compostas (opcional, fonte de inspiração)
 
-Sinta-se livre para invocar dentro de uma iteração:
+O loop core é **standalone** — não depende destas skills externas. Se
+estiverem instaladas no ambiente, podem ser invocadas dentro de uma
+iteração; senão, o comportamento equivalente já está embutido aqui.
 
-- `superpowers:test-driven-development` — modo `build`.
-- `superpowers:systematic-debugging` — quando uma iter falha por bug não-trivial.
-- `superpowers:verification-before-completion` — antes de considerar PASS.
-- `gsd-execute-phase` — se a intent envolve plano GSD existente.
-- `gitnexus-impact-analysis` — para entender raio de mudança no modo `refine`/`radical`.
+<!--
+Inspirações (não chamadas em runtime se ausentes):
+- superpowers:test-driven-development — espelha o modo `build`.
+- superpowers:systematic-debugging — espelha o handling de iters de fix.
+- superpowers:verification-before-completion — espelhada pelo passo §5 verify.
+- gsd-execute-phase — agora substituído pelas sub-fases internas (§9).
+- gitnexus-impact-analysis — heurística usada em `refine`/`radical`.
+-->
+
 
 ## Não faça
 

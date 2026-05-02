@@ -132,15 +132,21 @@ suggest next steps:
 
 Em backoff de fail, o delay pode ultrapassar 270s; aceitamos o cache miss em troca de espaçamento.
 
-## 6. Compatibilidade com skills externas
+## 6. Compatibilidade com skills externas (opcional)
 
-Dentro de uma iteração, a skill `sleepwell-loop` pode invocar:
+O loop core é **standalone** — comportamentos equivalentes estão
+embutidos no fluxo. Se as skills abaixo estiverem instaladas no
+ambiente, podem ser invocadas para reforço; senão, o loop opera sem
+elas.
 
-- `superpowers:test-driven-development` — modo `build`.
-- `superpowers:systematic-debugging` — em iters de fix.
-- `superpowers:verification-before-completion` — gating de PASS.
-- `gsd-execute-phase` — quando intent é "executar fase X do plano GSD".
-- `gitnexus-impact-analysis` — antes de modo `radical`.
+<!--
+Inspirações (não obrigatórias):
+- superpowers:test-driven-development — espelhada pelo modo `build`.
+- superpowers:systematic-debugging — espelhada pelo handling de FAIL.
+- superpowers:verification-before-completion — espelhada pelo §3 verify.
+- gsd-execute-phase — substituída pelas sub-fases internas (§9).
+- gitnexus-impact-analysis — heurística usada antes de `radical`.
+-->
 
 Contexto mantido entre invocações via cache de prompt.
 
@@ -263,7 +269,83 @@ matar o loop inteiro — pode ser uma iter outlier. Mas falhas seguidas (3
 caras em sequência) caem no abort de `consecutive_failures >= 3` e cortam
 naturalmente.
 
-## 9. Recuperação de falhas catastróficas
+## 9. Sub-fases internas (`.sleepwell/phases/`)
+
+Um run sleepwell pode ser decomposto em **sub-fases** — blocos lógicos de
+trabalho com plano, execução e verificação próprios. É um conceito
+**interno** ao plugin (não depende de skills externas como GSD): cada fase
+vive em `.sleepwell/phases/<NN>-<slug>/`.
+
+### Layout
+
+```
+.sleepwell/phases/
+├── 01-bootstrap/
+│   ├── PLAN.md          # gerado no início da fase (escopo, critérios)
+│   ├── EXECUTION.md     # log de iterações da fase (append-only)
+│   └── VERIFICATION.md  # critérios de aceite verificados ao fim
+├── 02-iteration-set-A/
+│   └── ...
+└── ...
+```
+
+Numeração `NN` é sequencial (zero-pad, 2 dígitos). `slug` é kebab-case.
+
+### Modelo no state.json
+
+Campo `phases: array` (v3, opcional) com itens:
+
+```json
+{
+  "id": 1,
+  "slug": "bootstrap",
+  "status": "active|completed|abandoned",
+  "started_at": "<ISO>",
+  "completed_at": "<ISO|null>",
+  "plan_path":         ".sleepwell/phases/01-bootstrap/PLAN.md",
+  "execution_path":    ".sleepwell/phases/01-bootstrap/EXECUTION.md",
+  "verification_path": ".sleepwell/phases/01-bootstrap/VERIFICATION.md"
+}
+```
+
+A fase com `status == "active"` é a **fase em curso**. Apenas uma por vez.
+
+### Comandos
+
+- `/sleepwell-phase-start "<slug>" [--plan <path>]` — abre nova fase.
+  Cria diretório, gera `PLAN.md` (template inline), `EXECUTION.md` vazio,
+  acrescenta entrada em `state.phases` com `status="active"`.
+- `/sleepwell-phase-complete [--abandon]` — fecha a fase ativa.
+  Gera/preenche `VERIFICATION.md`, marca `completed_at`, status →
+  `completed` (ou `abandoned` se `--abandon`).
+
+### Integração com a skill `sleepwell-loop`
+
+No passo 3 (construir prompt), se há fase ativa (status=`active`), a skill:
+
+- Anexa o conteúdo de `<plan_path>` ao prompt (seção `## Fase em curso`).
+- Anexa as últimas 30 linhas de `<execution_path>`.
+- Após cada PASS, append em `<execution_path>` a mesma linha que vai em
+  `notes.md` (espelho local da fase).
+
+Ao fim de cada iter, a skill avalia (via raciocínio curto sobre os
+critérios em `PLAN.md` + diff acumulado da fase) se os critérios da fase
+estão atendidos. Se sim:
+
+- Apresenta ao usuário: "fase `<slug>` completa — abrir nova fase ou
+  finalizar run?".
+- Em modo autônomo (sem usuário ativo), executa
+  `/sleepwell-phase-complete` automaticamente e propõe próxima fase via
+  `/sleepwell-suggest`.
+
+### Compatibilidade
+
+- Runs sem `phases` (legados v1/v2 ou v3 sem usar fases) seguem
+  funcionando exatamente como antes.
+- Comandos de status/recap/diff existentes não precisam mudar; apenas
+  ganham informação extra quando `state.phases` existe.
+
+## 10. Recuperação de falhas catastróficas
 
 Se o processo CC for derrubado no meio de uma iter:
 - `state.json` está parcialmente atualizado (o último write é atômico via tmpfile + rename).

@@ -18,10 +18,10 @@ cargo build --release
 
 | Comando        | Status      | Descrição                                                                 |
 |----------------|-------------|---------------------------------------------------------------------------|
-| `parse-jsonl`  | implementado| Parser tolerante de JSONL para Claude / Codex / Gemini / Generic.         |
-| `cost`         | implementado| Calcula custo USD a partir de usage + tabela `prices.toml` embutida.      |
-| `hash`         | stub        | Hash de conteúdo (cache).                                                 |
-| `watch`        | stub        | Observa arquivos/dirs.                                                    |
+| `parse-jsonl`  | stub (#17)  | Parser tolerante de JSONL para Claude / Codex / Gemini / Generic.         |
+| `cost`         | stub (#18)  | Calcula custo USD a partir de usage + tabela `prices.toml` embutida.      |
+| `hash`         | implementado| Hash blake3 de conteúdo (cache).                                          |
+| `watch`        | implementado| Observa diretório com debounce e emite eventos JSONL.                     |
 | `evaluate`     | stub        | Avalia outputs contra expectativas.                                       |
 | `calibrate`    | stub        | Calibra parâmetros a partir de histórico.                                 |
 

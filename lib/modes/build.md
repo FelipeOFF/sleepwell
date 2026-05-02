@@ -26,7 +26,8 @@ Cada uma dessas fases é um commit/iter. Não pula etapa.
 | N | Integração com chamador real. |
 | N+1 | Documentação / comentário se WHY não-óbvio. |
 
-Use a skill `superpowers:test-driven-development` quando aplicável.
+<!-- Inspiração (não obrigatória em runtime): superpowers:test-driven-development. O fluxo TDD acima já está embutido. -->
+
 
 ## O que NÃO fazer
 
