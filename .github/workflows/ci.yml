@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    defaults:
+      run:
+        working-directory: bin/sleepwell-helper
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bin/sleepwell-helper -> target
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: cargo test
+        run: cargo test --all-features --no-fail-fast
+
+      - name: cargo build --release
+        run: cargo build --release
+
+      - name: Smoke test (--version)
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            ./target/release/sleepwell-helper.exe --version
+            ./target/release/sleepwell-helper.exe --help
+          else
+            ./target/release/sleepwell-helper --version
+            ./target/release/sleepwell-helper --help
+          fi
+
+      - name: Smoke test (parse-jsonl + cost)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          BIN=./target/release/sleepwell-helper
+          for fixture in tests/fixtures/*_sample.jsonl; do
+            echo "=== $fixture ==="
+            "$BIN" parse-jsonl "$fixture" | tee /tmp/parsed.json
+            "$BIN" cost --input /tmp/parsed.json --model sonnet-4-7 || true
+          done
+
+  plugin-manifest:
+    name: Plugin manifest validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate plugin.json + marketplace.json (JSON syntax)
+        run: |
+          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+            [ -f "$f" ] || { echo "missing $f"; exit 1; }
+            python3 -c "import json,sys; json.load(open('$f'))" \
+              && echo "ok: $f"
+          done
+
+      - name: Validate state-schema.json (JSON Schema syntax)
+        run: |
+          python3 -c "import json,sys; s=json.load(open('lib/state-schema.json')); assert 'properties' in s, 'missing properties'; print('ok: lib/state-schema.json')"
+
+      - name: Validate hooks executables
+        run: |
+          for h in hooks/*.sh; do
+            [ -x "$h" ] || { echo "not executable: $h"; exit 1; }
+            bash -n "$h" && echo "syntax ok: $h"
+          done
+
+      - name: Validate commands frontmatter
+        run: |
+          set -e
+          fail=0
+          for cmd in commands/*.md; do
+            head -1 "$cmd" | grep -q '^---$' || { echo "no frontmatter: $cmd"; fail=1; }
+          done
+          exit $fail
+
+      - name: Skill dependency audit
+        run: |
+          if [ -x scripts/check-skill-deps.sh ]; then
+            bash scripts/check-skill-deps.sh
+          else
+            echo "scripts/check-skill-deps.sh not found or not executable, skipping"
+          fi
+
+  shellcheck:
+    name: ShellCheck hooks/scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: "."
+          severity: warning
+          additional_files: "hooks/*.sh scripts/*.sh"
+          ignore_paths: "bin"

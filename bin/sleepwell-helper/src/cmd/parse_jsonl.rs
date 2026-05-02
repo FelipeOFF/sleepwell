@@ -123,10 +123,8 @@ fn extract_gemini(v: &Value) -> Option<Usage> {
         .or_else(|| v.get("usage_metadata"))
         .or_else(|| v.get("usage"))?;
     let input = u(usage, "promptTokenCount").max(u(usage, "prompt_token_count"));
-    let output =
-        u(usage, "candidatesTokenCount").max(u(usage, "candidates_token_count"));
-    let cached = u(usage, "cachedContentTokenCount")
-        .max(u(usage, "cached_content_token_count"));
+    let output = u(usage, "candidatesTokenCount").max(u(usage, "candidates_token_count"));
+    let cached = u(usage, "cachedContentTokenCount").max(u(usage, "cached_content_token_count"));
     Some(Usage {
         input,
         output,
@@ -159,7 +157,15 @@ mod tests {
     fn claude_root_usage() {
         let v = json!({"usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 2, "cache_creation_input_tokens": 1}});
         let u = extract_claude(&v).unwrap();
-        assert_eq!(u, Usage { input: 10, output: 5, cache_read: 2, cache_creation: 1 });
+        assert_eq!(
+            u,
+            Usage {
+                input: 10,
+                output: 5,
+                cache_read: 2,
+                cache_creation: 1
+            }
+        );
     }
 
     #[test]
@@ -172,9 +178,18 @@ mod tests {
 
     #[test]
     fn codex_usage() {
-        let v = json!({"usage": {"prompt_tokens": 100, "completion_tokens": 40, "cached_tokens": 10}});
+        let v =
+            json!({"usage": {"prompt_tokens": 100, "completion_tokens": 40, "cached_tokens": 10}});
         let u = extract_codex(&v).unwrap();
-        assert_eq!(u, Usage { input: 100, output: 40, cache_read: 10, cache_creation: 0 });
+        assert_eq!(
+            u,
+            Usage {
+                input: 100,
+                output: 40,
+                cache_read: 10,
+                cache_creation: 0
+            }
+        );
     }
 
     #[test]

@@ -36,7 +36,11 @@ fn evaluate_pass_clean() {
         ])
         .output()
         .unwrap();
-    assert!(out.status.success(), "stderr={}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let s = String::from_utf8(out.stdout).unwrap();
     assert!(s.contains("\"rating\":5"), "got {}", s);
     assert!(s.contains("\"course_correct\":false"));

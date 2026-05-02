@@ -34,15 +34,12 @@ fn emits_jsonl_event_on_create() {
 
     let deadline = Instant::now() + Duration::from_secs(5);
     let mut got_line = String::new();
-    while Instant::now() < deadline {
-        let mut buf = String::new();
-        match reader.read_line(&mut buf) {
-            Ok(0) => break,
-            Ok(_) => {
+    let mut buf = String::new();
+    if Instant::now() < deadline {
+        if let Ok(n) = reader.read_line(&mut buf) {
+            if n > 0 {
                 got_line = buf;
-                break;
             }
-            Err(_) => break,
         }
     }
 

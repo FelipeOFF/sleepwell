@@ -110,8 +110,8 @@ fn score(state: Option<&Value>, diff_stat: &str, notes: &str) -> Output {
     }
 
     // Conventional commit on the most recent message.
-    let conv = Regex::new(r"^(feat|fix|refactor|docs|test|chore|perf)(\(.+\))?:")
-        .expect("regex compile");
+    let conv =
+        Regex::new(r"^(feat|fix|refactor|docs|test|chore|perf)(\(.+\))?:").expect("regex compile");
     let last_msg = state
         .and_then(|s| {
             s.get("last_commit_msg")

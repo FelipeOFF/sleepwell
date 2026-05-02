@@ -14,10 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-apple-darwin
-            os: macos-13
-            use_cross: false
-            ext: ""
           - target: aarch64-apple-darwin
             os: macos-14
             use_cross: false

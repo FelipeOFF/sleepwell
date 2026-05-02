@@ -73,7 +73,8 @@ pub fn run(args: CostArgs) -> Result<()> {
     };
 
     let breakdown = compute(&totals, price);
-    let cost_usd = breakdown.input + breakdown.output + breakdown.cache_read + breakdown.cache_creation;
+    let cost_usd =
+        breakdown.input + breakdown.output + breakdown.cache_read + breakdown.cache_creation;
 
     let out = json!({
         "cost_usd": cost_usd,
@@ -90,9 +91,7 @@ fn read_input(path: &Option<PathBuf>) -> Result<String> {
         Some(p) => fs::read_to_string(p).with_context(|| format!("read {:?}", p)),
         None => {
             let mut buf = String::new();
-            io::stdin()
-                .read_to_string(&mut buf)
-                .context("read stdin")?;
+            io::stdin().read_to_string(&mut buf).context("read stdin")?;
             Ok(buf)
         }
     }

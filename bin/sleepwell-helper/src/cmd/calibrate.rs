@@ -52,13 +52,19 @@ pub fn run(args: CalibrateArgs) -> Result<()> {
     let runs = match collect_runs(&args.archive) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("calibrate: archive vazio ou ilegível ({}); usando defaults", e);
+            eprintln!(
+                "calibrate: archive vazio ou ilegível ({}); usando defaults",
+                e
+            );
             print_defaults()?;
             return Ok(());
         }
     };
     if runs.is_empty() {
-        eprintln!("calibrate: nenhum run em {:?}; usando defaults", args.archive);
+        eprintln!(
+            "calibrate: nenhum run em {:?}; usando defaults",
+            args.archive
+        );
         print_defaults()?;
         return Ok(());
     }
@@ -73,9 +79,7 @@ pub fn run(args: CalibrateArgs) -> Result<()> {
         let absorbed = run
             .branch
             .as_deref()
-            .map(|b| {
-                merged.iter().any(|m| m == b) || cherry_picked(&args.repo, b, &base)
-            })
+            .map(|b| merged.iter().any(|m| m == b) || cherry_picked(&args.repo, b, &base))
             .unwrap_or(false);
         if absorbed {
             entry.0 += 1;
@@ -233,8 +237,14 @@ mod tests {
 
     #[test]
     fn classifies_known_intents() {
-        assert_eq!(classify_intent("refactor: extract X").as_deref(), Some("refactor"));
-        assert_eq!(classify_intent("feat new endpoint").as_deref(), Some("feat"));
+        assert_eq!(
+            classify_intent("refactor: extract X").as_deref(),
+            Some("refactor")
+        );
+        assert_eq!(
+            classify_intent("feat new endpoint").as_deref(),
+            Some("feat")
+        );
         assert_eq!(classify_intent("FIX bug"), Some("fix".to_string()));
         assert_eq!(classify_intent("plain idea"), None);
     }

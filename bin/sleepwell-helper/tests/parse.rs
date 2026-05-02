@@ -7,7 +7,11 @@ fn run_parse(file: &str, format: &str) -> Value {
         .args(["parse-jsonl", file, "--format", format])
         .output()
         .unwrap();
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     serde_json::from_slice(&out.stdout).expect("stdout must be JSON")
 }
 

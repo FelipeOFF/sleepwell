@@ -77,7 +77,12 @@ fn calibrate_with_synthetic_runs() {
         g(&["commit", "-qm", "x"]);
         g(&["checkout", "-q", "main"]);
         g(&["merge", "-q", "--no-ff", "-m", "merge", &br]);
-        write_state(&archive, &format!("run{}", i), &format!("refactor: x{}", i), &br);
+        write_state(
+            &archive,
+            &format!("run{}", i),
+            &format!("refactor: x{}", i),
+            &br,
+        );
     }
 
     // One unmerged feat branch.
