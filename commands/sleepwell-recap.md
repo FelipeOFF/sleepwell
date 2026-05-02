@@ -3,7 +3,7 @@ description: Generates a "my night" post-run narrative in an Obsidian vault.
 argument-hint: "[--vault PATH] [--no-write]"
 ---
 
-# /sleepwell-recap
+# /sleepwell:sleepwell-recap
 
 Generates a first-person diary note (PT-BR) about the night the agent
 worked. Reads all material from the run and writes it to an Obsidian vault in the

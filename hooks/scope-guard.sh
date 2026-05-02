@@ -56,6 +56,6 @@ sleepwell: edit outside the worktree blocked.
 
 While a sleepwell loop is running, edits are only allowed inside the
 isolated worktree. If you need to change something outside, stop the
-loop with /sleepwell-stop and edit manually.
+loop with /sleepwell:sleepwell-stop and edit manually.
 EOF
 exit 2

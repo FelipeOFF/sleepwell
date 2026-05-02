@@ -3,7 +3,7 @@ description: Closes the active phase of the run, generates VERIFICATION.md, and 
 argument-hint: "[--abandon]"
 ---
 
-# /sleepwell-phase-complete
+# /sleepwell:sleepwell-phase-complete
 
 Closes the phase with `status == "active"`. Generates `VERIFICATION.md` checking
 criteria from `PLAN.md` against the real state (phase commits, tests,
@@ -75,8 +75,8 @@ verification: .sleepwell/phases/<NN>-<slug>/VERIFICATION.md
 criteria:     <X>/<Y> verified
 
 next steps:
-  /sleepwell-phase-start "<next>"      # start new phase
-  /sleepwell-recap                      # close run
+  /sleepwell:sleepwell-phase-start "<next>"      # start new phase
+  /sleepwell:sleepwell-recap                      # close run
 ```
 
 ## Edge cases

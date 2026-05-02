@@ -2,7 +2,7 @@
 description: Creates a PR from the active sleepwell branch with a structured body.
 ---
 
-# /sleepwell-pr
+# /sleepwell:sleepwell-pr
 
 Creates a pull request from the current sleepwell branch against the detected
 base branch (`sleepwell_base_branch` — see `lib/ritual.md §7.1`). The body includes

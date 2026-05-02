@@ -186,8 +186,8 @@ Um run pode ser quebrado em **sub-fases internas** que vivem em
 como antes.
 
 ```
-/sleepwell-phase-start "<slug>"          # opens a new phase (only one active at a time)
-/sleepwell-phase-complete [--abandon]    # closes the active phase, generating VERIFICATION.md
+/sleepwell:sleepwell-phase-start "<slug>"          # opens a new phase (only one active at a time)
+/sleepwell:sleepwell-phase-complete [--abandon]    # closes the active phase, generating VERIFICATION.md
 ```
 
 Quando uma fase está ativa, o loop injeta o `PLAN.md` dela e o
@@ -203,7 +203,7 @@ slug human-readable derivado da intent é preservado separadamente em
 mantém o namespace de branches limpo.
 
 Quando um run termina (`status == done`), o loop invoca
-`/sleepwell-pr` automaticamente e persiste a URL do PR resultante em
+`/sleepwell:sleepwell-pr` automaticamente e persiste a URL do PR resultante em
 `state.pr_url`. O body do PR inclui intent, modo, contagem de iterações,
 custo em USD, rating mais recente do evaluator e a lista de commits.
 

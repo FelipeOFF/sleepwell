@@ -57,7 +57,7 @@ Markdown table:
 ```
 | # | Intent                                | Mode    | Max-iter | Expected cost | Confidence |
 |---|---------------------------------------|---------|----------|---------------|------------|
-| 1 | Limpar deps não usadas e formatar     | tidy    | 6        | ~$0.30        | 85%        |
+| 1 | Clean unused deps and format          | tidy    | 6        | ~$0.30        | 85%        |
 | 2 | Extrair middleware de auth            | refine  | 12       | ~$0.90        | 70%        |
 | 3 | Adicionar endpoint /metrics com tests | build   | 18       | ~$1.80        | 55%        |
 ```
@@ -65,7 +65,7 @@ Markdown table:
 Below the table, for each row, 1 justification phrase:
 
 ```
-1. tidy — Limpar deps não usadas e formatar
+1. tidy — Clean unused deps and format
    There are 14 TODOs in JS files and clean working tree: ideal night for
    low-risk mechanical hygiene.
 

@@ -6,7 +6,7 @@
 #      branches (main/master/develop/trunk).
 #   2. During an active sleepwell loop (status=running in
 #      .sleepwell/state.json): any `git push` is blocked — push
-#      must be an explicit human decision after /sleepwell-stop or
+#      must be an explicit human decision after /sleepwell:sleepwell-stop or
 #      natural loop finalize.
 #
 # Claude Code PreToolUse protocol:
@@ -78,10 +78,10 @@ Sleepwell loop is in status=running (branch=$(jq -r '.branch // "?"' "$state_fil
 Pushing mid-loop may publish commits that will still be reverted.
 
 Stop the loop first:
-  /sleepwell-stop
+  /sleepwell:sleepwell-stop
 and review with:
-  /sleepwell-diff
-Then you can push manually — or use /sleepwell-pr.
+  /sleepwell:sleepwell-diff
+Then you can push manually — or use /sleepwell:sleepwell-pr.
 EOF
   exit 2
 fi

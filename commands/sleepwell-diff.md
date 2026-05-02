@@ -3,7 +3,7 @@ description: Shows the accumulated diff of the sleepwell branch against the base
 argument-hint: [--base <branch>] [--stat]
 ---
 
-# /sleepwell-diff
+# /sleepwell:sleepwell-diff
 
 Shows what the sleepwell loop has produced so far.
 

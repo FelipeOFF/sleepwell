@@ -48,7 +48,7 @@ Strangler-fig friendly. Each iter advances ONE step:
 ## Recommendation
 
 Before starting `radical`, build the plan in a sub-phase
-(`/sleepwell-phase-start "plan-radical"`) and fill in acceptance criteria
+(`/sleepwell:sleepwell-phase-start "plan-radical"`) and fill in acceptance criteria
 in `PLAN.md`. `radical` without a plan tends to become churn.
 
 <!--
