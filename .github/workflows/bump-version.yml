@@ -187,6 +187,23 @@ jobs:
           git push origin HEAD:main
           git push origin "$TAG"
 
+      - name: Trigger release workflow for the new tag
+        if: ${{ inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.compute.outputs.new_tag }}
+        run: |
+          set -euo pipefail
+          # Tag-pushes from GITHUB_TOKEN do NOT trigger downstream workflows
+          # (anti-loop protection). Workflow_dispatch is the documented
+          # exception, so we kick release.yml explicitly with the new tag
+          # as ref. The release job sees github.ref=refs/tags/<tag> and
+          # uploads artifacts to the matching release.
+          # Wait briefly so the tag is fully visible to the API.
+          sleep 5
+          gh workflow run release.yml --ref "$TAG" -R "${{ github.repository }}"
+          echo "Dispatched release.yml for $TAG"
+
       - name: Summary
         run: |
           {
