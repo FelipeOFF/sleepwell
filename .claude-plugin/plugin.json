@@ -1,6 +1,6 @@
 {
   "name": "sleepwell",
-  "version": "0.6.1",
+  "version": "0.6.0",
   "description": "Loop autônomo nativo do Claude Code — combina disciplina do gnhf (commit atômico, rollback, branch isolada) com adaptação do overnight (voice matching, modos, meta-learning), tudo dentro de uma sessão CC com cache quente e MCPs vivos.",
   "author": {
     "name": "Felipe Oliveira",
