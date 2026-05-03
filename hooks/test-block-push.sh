@@ -22,7 +22,7 @@ fi
 WORK=$(mktemp -d -t sleepwell-block-push.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 
-cd "$WORK"
+cd "$WORK" || exit 1
 mkdir -p .sleepwell
 
 pass=0
