@@ -1,0 +1,202 @@
+name: Bump version & release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump type"
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+          - custom
+      custom_version:
+        description: "Custom version (used only when bump=custom). Format: X.Y.Z (no 'v' prefix)."
+        type: string
+        required: false
+        default: ""
+      dry_run:
+        description: "Dry run — compute version, do not commit/tag/push"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-version
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.compute.outputs.new_version }}
+      new_tag: ${{ steps.compute.outputs.new_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Resolve current version
+        id: current
+        run: |
+          set -euo pipefail
+          # Prefer the latest bin-v* tag as source of truth; fall back to Cargo.toml.
+          last_tag=$(git tag --list 'bin-v*' --sort=-v:refname | head -1 || true)
+          if [ -n "$last_tag" ]; then
+            current="${last_tag#bin-v}"
+            source="tag $last_tag"
+          else
+            current=$(grep -m1 '^version' bin/sleepwell-helper/Cargo.toml | sed -E 's/.*"([0-9.]+)".*/\1/')
+            source="Cargo.toml"
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "source=$source"   >> "$GITHUB_OUTPUT"
+          echo "Current version: $current (from $source)"
+
+      - name: Compute new version
+        id: compute
+        env:
+          BUMP: ${{ inputs.bump }}
+          CUSTOM: ${{ inputs.custom_version }}
+          CURRENT: ${{ steps.current.outputs.current }}
+        run: |
+          set -euo pipefail
+          if [ "$BUMP" = "custom" ]; then
+            if [ -z "$CUSTOM" ]; then
+              echo "::error::bump=custom requires custom_version input"
+              exit 1
+            fi
+            if ! [[ "$CUSTOM" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::custom_version '$CUSTOM' is not in X.Y.Z format"
+              exit 1
+            fi
+            new="$CUSTOM"
+          else
+            IFS='.' read -r major minor patch <<<"$CURRENT"
+            case "$BUMP" in
+              patch) patch=$((patch + 1)) ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              *) echo "::error::unknown bump '$BUMP'"; exit 1 ;;
+            esac
+            new="${major}.${minor}.${patch}"
+          fi
+
+          # Refuse downgrade.
+          highest=$(printf '%s\n%s\n' "$CURRENT" "$new" | sort -V | tail -1)
+          if [ "$highest" != "$new" ] || [ "$CURRENT" = "$new" ]; then
+            echo "::error::computed version '$new' must be greater than current '$CURRENT'"
+            exit 1
+          fi
+
+          tag="bin-v${new}"
+          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            echo "::error::tag $tag already exists"
+            exit 1
+          fi
+
+          echo "new_version=$new" >> "$GITHUB_OUTPUT"
+          echo "new_tag=$tag"     >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "Bump type:    $BUMP"
+          echo "Current:      $CURRENT"
+          echo "New version:  $new"
+          echo "New tag:      $tag"
+
+      - name: Update version files
+        if: ${{ inputs.dry_run == false }}
+        env:
+          NEW: ${{ steps.compute.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          # 1. bin/sleepwell-helper/Cargo.toml — leftmost version line.
+          python3 - "$NEW" <<'PY'
+          import re, sys, pathlib
+          new = sys.argv[1]
+          for path in [
+              "bin/sleepwell-helper/Cargo.toml",
+          ]:
+              p = pathlib.Path(path)
+              src = p.read_text()
+              out = re.sub(r'^(version\s*=\s*")[0-9.]+(")', r'\g<1>' + new + r'\2',
+                           src, count=1, flags=re.M)
+              if out == src:
+                  raise SystemExit(f"no version field updated in {path}")
+              p.write_text(out)
+              print(f"updated {path}")
+          PY
+
+          # 2. .claude-plugin/plugin.json + marketplace.json (JSON-aware).
+          python3 - "$NEW" <<'PY'
+          import json, sys, pathlib
+          new = sys.argv[1]
+
+          plugin = pathlib.Path(".claude-plugin/plugin.json")
+          d = json.loads(plugin.read_text())
+          d["version"] = new
+          plugin.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
+          print("updated plugin.json")
+
+          mkt = pathlib.Path(".claude-plugin/marketplace.json")
+          if mkt.exists():
+              m = json.loads(mkt.read_text())
+              for plg in m.get("plugins", []):
+                  if plg.get("name") == "sleepwell":
+                      plg["version"] = new
+              mkt.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+              print("updated marketplace.json")
+          PY
+
+          # 3. Refresh Cargo.lock so it tracks the new version.
+          if command -v cargo >/dev/null; then
+            (cd bin/sleepwell-helper && cargo update -p sleepwell-helper --precise "$NEW" 2>/dev/null || cargo generate-lockfile)
+          fi
+
+      - name: Commit and tag
+        if: ${{ inputs.dry_run == false }}
+        env:
+          NEW: ${{ steps.compute.outputs.new_version }}
+          TAG: ${{ steps.compute.outputs.new_tag }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add bin/sleepwell-helper/Cargo.toml bin/sleepwell-helper/Cargo.lock \
+                  .claude-plugin/plugin.json .claude-plugin/marketplace.json 2>/dev/null || true
+
+          if git diff --cached --quiet; then
+            echo "::warning::no version files changed (already at $NEW?)"
+          else
+            git commit -m "chore(release): bump to v${NEW}
+
+          Triggered by workflow_dispatch (${{ inputs.bump }}).
+          Tag ${TAG} will fire the release workflow to build and publish artifacts."
+          fi
+
+          git tag -a "$TAG" -m "sleepwell-helper v${NEW}"
+
+          git push origin HEAD:main
+          git push origin "$TAG"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Bump version summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Bump type | \`${{ inputs.bump }}\` |"
+            echo "| Current   | \`${{ steps.current.outputs.current }}\` (from ${{ steps.current.outputs.source }}) |"
+            echo "| New       | \`${{ steps.compute.outputs.new_version }}\` |"
+            echo "| Tag       | \`${{ steps.compute.outputs.new_tag }}\` |"
+            echo "| Dry run   | \`${{ inputs.dry_run }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
