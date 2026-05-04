@@ -106,4 +106,5 @@ target/
 
 
 # sleepwell loop state
-.sleepwell/
+.sleepwell/*
+!.sleepwell/team.config.example.yaml

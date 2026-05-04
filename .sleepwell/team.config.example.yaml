@@ -1,0 +1,42 @@
+# .sleepwell/team.config.yaml — multi-agent team workflow defaults.
+# Copy to .sleepwell/team.config.yaml in your project to customize.
+
+review:
+  enabled: true
+  agent: general-purpose      # or named subagent_type
+  max_rounds: 2
+  block_on_severity: high     # any | low | medium | high | none
+                              # any  = any comment blocks (alias of low)
+                              # low  = block on low+ (everything except none)
+                              # high = block only on high severity (default)
+                              # none = never block (review is advisory)
+  scope: changed-files        # changed-files | full-pr | branch-vs-base
+
+fix:
+  enabled: true
+  agent: general-purpose
+  reply_to_threads: true      # post replies on resolved review threads
+
+ci:
+  poll_interval_secs: 30
+  max_wait_minutes: 30
+  required_checks: []         # empty = auto-detect from branch protection
+  fail_fast: true             # abort on first required check failure
+
+merge:
+  strategy: squash            # squash | merge | rebase
+  delete_branch: true
+  auto_merge: false           # true = enable GitHub auto-merge instead of waiting locally
+
+post_merge:
+  # List of actions executed in order after merge succeeds.
+  # Each action: type + params. Types built-in:
+  #   - dispatch_workflow: triggers a GH Actions workflow_dispatch
+  #   - run_command: invokes a /sleepwell:* command
+  #   - shell: runs a shell command (allowlisted)
+  #   - none: explicit no-op
+  - type: none
+  # Example for sleepwell self-development:
+  # - type: dispatch_workflow
+  #   workflow: bump-version.yml
+  #   inputs: { bump: patch }
