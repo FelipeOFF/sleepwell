@@ -92,6 +92,28 @@ disponíveis aparecem via `/sleepwell:sleepwell-update`.
 
 Desative o check em background com `SLEEPWELL_SKIP_UPDATE_CHECK=1`.
 Ajuste o TTL com `SLEEPWELL_UPDATE_TTL=<segundos>` (padrão 86400).
+Sobrescreva o repo com `SLEEPWELL_UPDATE_REPO=<owner>/<name>`.
+
+Para suprimir notificações sobre o binário helper opcional (caso
+você nunca queira tê-lo instalado), crie um arquivo sentinela:
+
+```bash
+mkdir -p ~/.config/sleepwell && touch ~/.config/sleepwell/no-helper
+```
+
+#### Smoke test manual
+
+Para validar o check de update ponta-a-ponta:
+
+```bash
+rm -f ~/.cache/sleepwell/update.json
+bash hooks/check-update.sh
+sleep 3
+cat ~/.cache/sleepwell/update.json
+```
+
+Deve gerar um JSON válido com `plugin_installed`, `plugin_latest`,
+`helper_installed`, `helper_latest` e flags `*_update_available`.
 
 > **Dica:** digite `/sl` e pressione `Tab` no Claude Code para
 > autocompletar os comandos longos namespaced.
