@@ -312,3 +312,30 @@ the next layer. Validation:
 
 The team skill validates the merged config at startup and aborts with
 a descriptive error before any agent is dispatched.
+
+## §11. User questions — `AskUserQuestion` only
+
+Whenever any agent in the team workflow needs a decision from the
+operator (intent ambiguity, target repo, post-merge action override,
+conflict resolution), it **must** use Claude Code's `AskUserQuestion`
+tool. Plain-text prompts in the chat are not allowed for discrete
+choices — they are not parseable by the orchestrator and break audit
+trails persisted in `team-state.json`.
+
+Rules:
+
+- The Implementer, Reviewer, Fixer, and CI-Watcher all surface
+  questions through `AskUserQuestion`. Sub-agents that lack the tool
+  must return control to the orchestrator with a structured request,
+  and the orchestrator asks.
+- The list of options must be exhaustive enough that the user rarely
+  needs to pick "Other"; "Other" is reserved for genuinely free-form
+  answers.
+- Confirming destructive actions (force-push, merge with red CI,
+  deleting a backup) always uses `AskUserQuestion` with the
+  destructive option clearly labeled.
+- The recorded answer is written to `team-state.user_decisions[]`
+  with `{question, answer, asked_at, agent}` for replay.
+
+Plain text is acceptable only when the answer is intrinsically
+free-form prose (e.g. "describe the bug to debug").
