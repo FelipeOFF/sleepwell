@@ -11,6 +11,10 @@ Activated by `/sleepwell:sleepwell-team-fix "<intent>" [opts]`.
 > **Authoritative flow:** `lib/team-workflow.md`. This skill **implements** the
 > ritual described there — when in doubt, the lib file wins.
 
+> **User questions:** any clarification, confirmation, or decision asked of the
+> operator MUST use the `AskUserQuestion` tool — never plain text. See
+> `lib/team-workflow.md` §11.
+
 ## Architecture
 
 Four coordinated agents, plus an optional fifth:
