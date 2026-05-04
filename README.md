@@ -77,6 +77,47 @@ The helper is **optional** — every skill has a `bash`/`jq` fallback. Its
 absence only reduces precision (cost telemetry, calibration), it does
 not break the loop.
 
+### Updates
+
+The plugin checks for new SleepWell or helper binary releases once
+per session (in background, throttled to 24h). Available updates show
+up via `/sleepwell:sleepwell-update`.
+
+```
+/sleepwell:sleepwell-update              # see what's available
+/sleepwell:sleepwell-update --apply      # download helper update
+/sleepwell:sleepwell-update --helper-only
+/sleepwell:sleepwell-update --plugin-only
+```
+
+Disable the background check with `SLEEPWELL_SKIP_UPDATE_CHECK=1`.
+Adjust the TTL with `SLEEPWELL_UPDATE_TTL=<seconds>` (default 86400).
+Override the repo with `SLEEPWELL_UPDATE_REPO=<owner>/<name>`.
+
+To suppress notifications about the optional helper binary (e.g. you
+never want it installed), create a sentinel file:
+
+```bash
+mkdir -p ~/.config/sleepwell && touch ~/.config/sleepwell/no-helper
+```
+
+#### Manual smoke test
+
+To verify the update check works end-to-end:
+
+```bash
+rm -f ~/.cache/sleepwell/update.json
+bash hooks/check-update.sh
+sleep 3
+cat ~/.cache/sleepwell/update.json
+```
+
+You should see a valid JSON with `plugin_installed`, `plugin_latest`,
+`helper_installed`, `helper_latest` and `*_update_available` flags.
+
+> **Tip:** type `/sl` and press `Tab` in Claude Code to autocomplete the
+> long namespaced commands.
+
 ## Quick start
 
 ```

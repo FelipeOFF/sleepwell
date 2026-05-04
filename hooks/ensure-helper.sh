@@ -19,4 +19,5 @@ INSTALL_SH="$ROOT/scripts/install-helper.sh"
 
 # Detach. SessionStart should not delay startup.
 disown 2>/dev/null || true
+
 exit 0
