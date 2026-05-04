@@ -63,6 +63,25 @@ fi
     latest_helper=$(printf '%s' "$json" | jq -r '[.[] | select(.tag_name | startswith("bin-v"))][0].tag_name // empty' 2>/dev/null || true)
   fi
 
+  # Fallback: plugin tag may not exist (repo only tags helper as bin-v*).
+  # Read .claude-plugin/plugin.json from default branch via raw GitHub.
+  if [ -z "$latest_plugin" ]; then
+    raw_json=""
+    if command -v gh >/dev/null 2>&1; then
+      raw_json=$(timeout 8 gh api "repos/$REPO_SLUG/contents/.claude-plugin/plugin.json" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || true)
+    fi
+    if [ -z "$raw_json" ] && command -v curl >/dev/null 2>&1; then
+      for branch in main master; do
+        raw_json=$(curl -fsSL --max-time 8 "https://raw.githubusercontent.com/$REPO_SLUG/$branch/.claude-plugin/plugin.json" 2>/dev/null || echo "")
+        [ -n "$raw_json" ] && break
+      done
+    fi
+    if [ -n "$raw_json" ]; then
+      remote_ver=$(printf '%s' "$raw_json" | jq -r '.version // empty' 2>/dev/null || true)
+      [ -n "$remote_ver" ] && latest_plugin="v$remote_ver"
+    fi
+  fi
+
   # Strip prefixes for comparison.
   lp=${latest_plugin#v}
   lh=${latest_helper#bin-v}
