@@ -28,6 +28,14 @@
             "command": "hooks/ensure-helper.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/check-update.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [
