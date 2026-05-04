@@ -115,6 +115,23 @@ cat ~/.cache/sleepwell/update.json
 Deve gerar um JSON válido com `plugin_installed`, `plugin_latest`,
 `helper_installed`, `helper_latest` e flags `*_update_available`.
 
+### Recovery
+
+Se os comandos `/sleepwell:*` sumirem do Claude Code (tipicamente após
+um update do CC ou ferramenta de terceiros que mexe em
+`~/.claude/plugins/`), o diretório de cache pode ter sido removido
+enquanto `installed_plugins.json` ainda o referencia. Recupere com:
+
+```bash
+# A partir de qualquer terminal (não requer o sleepwell carregado):
+bash <(curl -fsSL https://raw.githubusercontent.com/FelipeOFF/sleepwell/main/scripts/restore-plugin-cache.sh)
+
+# Ou de dentro do Claude Code (se o doctor ainda funcionar):
+/sleepwell:sleepwell-doctor --restore-cache
+```
+
+Depois de restaurar, rode `/reload-plugins` no Claude Code.
+
 > **Dica:** digite `/sl` e pressione `Tab` no Claude Code para
 > autocompletar os comandos longos namespaced.
 
