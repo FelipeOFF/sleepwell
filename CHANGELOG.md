@@ -8,6 +8,22 @@ Each section is generated automatically by `scripts/generate-changelog.sh` durin
 the `Bump version & release` workflow. The `bin-v*` (helper binary) tags are
 tracked separately on the GitHub Releases page.
 
+## v0.7.3 — 2026-05-04
+
+_Compare: [`bin-v0.7.1…v0.7.3`](https://github.com/FelipeOFF/sleepwell/compare/bin-v0.7.1...v0.7.3)_
+
+### Features
+
+- Adiciona changelog automático no bump-version (d49d4ac)
+
+### Bug fixes
+
+- Corrige plugin_latest unknown e hooks com path relativo (05778fb)
+
+### Documentation
+
+- Adiciona regra de uso obrigatório de AskUserQuestion (b215cf8)
+
 ## v0.7.2 — 2026-05-04
 
 _Compare: [`bin-v0.7.1…v0.7.2`](https://github.com/FelipeOFF/sleepwell/compare/bin-v0.7.1...v0.7.2)_
