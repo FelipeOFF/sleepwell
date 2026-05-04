@@ -44,6 +44,27 @@ installed for the current platform.
   inline. After it completes, instruct the user to run
   `/reload-plugins` in Claude Code.
 
+### Flag interaction: `--restore-cache` × `--reinstall`
+
+The two flags address different artefacts and **can be combined**:
+
+- `--restore-cache` recovers the **plugin cache directory** (skill markdown,
+  commands, scripts) at `~/.claude/plugins/cache/...`. Without it the
+  doctor itself may fail to reach helper scripts.
+- `--reinstall` redownloads the **`sleepwell-helper` binary** under
+  `~/.local/share/sleepwell/bin/` (or platform equivalent).
+
+When both are passed, the doctor runs them in this fixed order:
+
+1. `--restore-cache` runs **first**, before any other step, so subsequent
+   logic (and any helper scripts the doctor itself loads) sees a healthy
+   cache.
+2. The normal pipeline then continues, and `--reinstall` re-downloads the
+   helper binary on top of the now-restored cache.
+
+Running `--reinstall` alone never touches the cache; running
+`--restore-cache` alone never touches the helper binary.
+
 ## Output
 
 ```

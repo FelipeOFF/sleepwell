@@ -110,8 +110,17 @@ recorded but do not roll back the merge.
 | `low` | style nits, redundant comments, minor doc gaps |
 
 `review.block_on_severity` selects the threshold that triggers
-`REQUEST_CHANGES`. Comments below the threshold are still posted but do
-not block.
+`REQUEST_CHANGES`. Accepted values, in order of permissiveness:
+
+| Value | Blocks on |
+|---|---|
+| `any` | any comment (alias of `low`) |
+| `low` | low, medium, high |
+| `medium` | medium, high |
+| `high` | high only (default) |
+| `none` | never blocks — review is advisory |
+
+Comments below the threshold are still posted but do not block.
 
 ### REST payload
 

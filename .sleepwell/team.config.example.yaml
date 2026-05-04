@@ -5,7 +5,11 @@ review:
   enabled: true
   agent: general-purpose      # or named subagent_type
   max_rounds: 2
-  block_on_severity: high     # any | medium | high | none
+  block_on_severity: high     # any | low | medium | high | none
+                              # any  = any comment blocks (alias of low)
+                              # low  = block on low+ (everything except none)
+                              # high = block only on high severity (default)
+                              # none = never block (review is advisory)
   scope: changed-files        # changed-files | full-pr | branch-vs-base
 
 fix:
