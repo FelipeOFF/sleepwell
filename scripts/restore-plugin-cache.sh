@@ -175,7 +175,8 @@ prune_old_backups() {
 }
 
 restore_entry() {
-  local install_path="$1" sha="$2" version="$3"
+  local install_path="$1" sha="$2"
+  # $3 is the version field (reserved for per-version logic; currently unused)
   local parent
   parent="$(dirname "$install_path")"
 
@@ -188,7 +189,8 @@ restore_entry() {
 
   # Backup existing dir if any (kept for SLEEPWELL_BROKEN_TTL_DAYS, then pruned).
   if [ -e "$install_path" ]; then
-    local backup="${install_path}.broken.$(date +%s)"
+    local backup
+    backup="${install_path}.broken.$(date +%s)"
     vlog "moving existing $install_path → $backup"
     mv "$install_path" "$backup"
   fi
