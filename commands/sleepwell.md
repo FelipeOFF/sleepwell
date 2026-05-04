@@ -1,6 +1,6 @@
 ---
 description: Starts (or resumes) the autonomous sleepwell loop. Combines gnhf discipline (isolated branch, atomic commit, rollback on fail) with overnight adaptation (voice matching, modes, meta-learning). Runs inside the CC session with a warm cache between iterations.
-argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condition>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>] [--no-pr] [--draft-pr]
+argument-hint: "<intent>" [--mode tidy|refine|build|radical] [--max-iter N] [--max-cost USD] [--max-cost-per-iter USD] [--stop-when "<condition>"] [--dry-run] [--no-worktree] [--no-voice] [--no-meta] [--intent-file <path>] [--no-pr] [--draft-pr] [--with-team]
 ---
 
 # /sleepwell:sleepwell
@@ -25,11 +25,21 @@ Starts or resumes the autonomous loop. Use the `sleepwell-loop` skill as the ent
 --no-meta                             optional
 --no-pr                               optional (default: creates PR at end of run)
 --draft-pr                            optional (creates PR as draft)
+--with-team                           optional — at end of run delegates to
+                                      /sleepwell:sleepwell-team-fix instead of
+                                      /sleepwell:sleepwell-pr (full team workflow:
+                                      review → fix → CI → merge → post-merge).
+                                      Mutually exclusive with --no-pr.
 ```
 
 > **PR-only flow:** at the end of a run with `status == done`, the loop invokes
 > `/sleepwell:sleepwell-pr` automatically (unless `--no-pr` was passed).
 > Auto-merge is disabled by default. See `commands/sleepwell:sleepwell-pr.md`.
+>
+> **Team workflow:** with `--with-team` the loop instead delegates to
+> `/sleepwell:sleepwell-team-fix` once `status == done`, which runs the full
+> review → fix → CI → merge → optional post-merge pipeline. See
+> `lib/team-workflow.md` and `skills/sleepwell-team/SKILL.md`.
 
 All flags are **persisted in `state.json`** at bootstrap (`worktree_enabled`,
 `no_voice`, `no_meta`, `intent_file`, `cost_budget_usd`,

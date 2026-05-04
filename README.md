@@ -162,6 +162,25 @@ After restore, run `/reload-plugins` in Claude Code.
 | `radical` | Subsystem rewrites | Allows breaking and rebuilding; higher risk |
 | `wave` | Multi-agent collaboration (experimental) | Propose → critique → consolidate per iteration |
 
+## Team workflow (multi-agent)
+
+For end-to-end automation — implement → PR → review → fix → CI → merge — use:
+
+```
+/sleepwell:sleepwell-team-fix "implement OAuth2 with PKCE for the auth module" --mode build --max-iter 8 --max-review-rounds 2
+```
+
+This spawns 4 coordinated agents:
+
+| Agent | Role |
+|---|---|
+| Implementer | runs the standard sleepwell loop until done |
+| Reviewer | inspects the PR diff, posts line-level comments via gh api |
+| Fixer | applies fixes for each review comment, replies on threads |
+| CI-Watcher | polls gh pr checks until green or timeout |
+
+Configurable via `.sleepwell/team.config.yaml` (copy from `team.config.example.yaml`). Post-merge actions are flexible: dispatch a workflow, run another sleepwell command, or no-op for teams without a release step. See [`lib/team-workflow.md`](lib/team-workflow.md).
+
 ## Options
 
 ```
