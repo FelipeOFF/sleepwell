@@ -24,21 +24,41 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$(dirname "$HERE")"
 PLUGIN_VERSION=$(jq -r .version "$ROOT/.claude-plugin/plugin.json" 2>/dev/null || echo "0.0.0")
 
+# Resolve owner/repo: env override > plugin.json .repository > last-resort default.
+REPO_FROM_ENV="${SLEEPWELL_UPDATE_REPO:-}"
+if [ -n "$REPO_FROM_ENV" ]; then
+  REPO_SLUG="$REPO_FROM_ENV"
+else
+  repo_url=$(jq -r '.repository // empty' "$ROOT/.claude-plugin/plugin.json" 2>/dev/null || echo "")
+  REPO_SLUG=$(echo "$repo_url" | sed -E 's#^https?://github.com/([^/]+/[^/]+).*#\1#' | sed -E 's/\.git$//')
+fi
+[ -z "$REPO_SLUG" ] && REPO_SLUG="FelipeOFF/sleepwell"
+
+# Helper opt-out: persistent sentinel suppresses helper notifications.
+HELPER_OPTOUT_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/sleepwell/no-helper"
+
 # Helper version: prefer installed binary's --version output; else "none".
 HELPER_BIN_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/sleepwell/bin"
 HELPER_BIN="$HELPER_BIN_DIR/sleepwell-helper"
-[ -x "$HELPER_BIN" ] && HELPER_VERSION=$("$HELPER_BIN" --version 2>/dev/null | awk '{print $2}') || HELPER_VERSION="none"
+if [ -f "$HELPER_OPTOUT_FILE" ]; then
+  HELPER_VERSION="opted-out"
+else
+  [ -x "$HELPER_BIN" ] && HELPER_VERSION=$("$HELPER_BIN" --version 2>/dev/null | awk '{print $2}') || HELPER_VERSION="none"
+fi
 
 # Background fetch — never blocks startup.
 (
+  # Guard: jq is required for the JSON parsing below.
+  command -v jq >/dev/null || exit 0
+
   mkdir -p "$CACHE_DIR"
   latest_plugin=""
   latest_helper=""
   if command -v gh >/dev/null 2>&1; then
-    latest_plugin=$(gh api repos/FelipeOFF/sleepwell/releases --jq '[.[] | select(.tag_name | startswith("v"))][0].tag_name // empty' 2>/dev/null || true)
-    latest_helper=$(gh api repos/FelipeOFF/sleepwell/releases --jq '[.[] | select(.tag_name | startswith("bin-v"))][0].tag_name // empty' 2>/dev/null || true)
+    latest_plugin=$(timeout 8 gh api "repos/$REPO_SLUG/releases" --jq '[.[] | select(.tag_name | startswith("v"))][0].tag_name // empty' 2>/dev/null || true)
+    latest_helper=$(timeout 8 gh api "repos/$REPO_SLUG/releases" --jq '[.[] | select(.tag_name | startswith("bin-v"))][0].tag_name // empty' 2>/dev/null || true)
   elif command -v curl >/dev/null 2>&1; then
-    json=$(curl -fsSL --max-time 8 "https://api.github.com/repos/FelipeOFF/sleepwell/releases" 2>/dev/null || echo "[]")
+    json=$(curl -fsSL --max-time 8 "https://api.github.com/repos/$REPO_SLUG/releases" 2>/dev/null || echo "[]")
     latest_plugin=$(printf '%s' "$json" | jq -r '[.[] | select(.tag_name | startswith("v"))][0].tag_name // empty' 2>/dev/null || true)
     latest_helper=$(printf '%s' "$json" | jq -r '[.[] | select(.tag_name | startswith("bin-v"))][0].tag_name // empty' 2>/dev/null || true)
   fi
@@ -59,13 +79,16 @@ HELPER_BIN="$HELPER_BIN_DIR/sleepwell-helper"
   [ -n "$lp" ] && semver_gt "$lp" "$PLUGIN_VERSION" && plugin_update=true
 
   helper_update=false
-  if [ -n "$lh" ] && [ "$HELPER_VERSION" != "none" ]; then
+  if [ "$HELPER_VERSION" = "opted-out" ]; then
+    helper_update=false
+  elif [ -n "$lh" ] && [ "$HELPER_VERSION" != "none" ]; then
     semver_gt "$lh" "$HELPER_VERSION" && helper_update=true
   elif [ -n "$lh" ] && [ "$HELPER_VERSION" = "none" ]; then
     helper_update=true
   fi
 
-  cat > "$CACHE_FILE.tmp" <<JSON
+  tmp="$CACHE_FILE.$$.tmp"
+  cat > "$tmp" <<JSON
 {
   "plugin_installed": "$PLUGIN_VERSION",
   "plugin_latest": "${latest_plugin:-unknown}",
@@ -77,7 +100,7 @@ HELPER_BIN="$HELPER_BIN_DIR/sleepwell-helper"
   "checked_at_iso": "$(date -u +%FT%TZ)"
 }
 JSON
-  mv "$CACHE_FILE.tmp" "$CACHE_FILE"
+  mv "$tmp" "$CACHE_FILE"
 ) >/dev/null 2>&1 &
 disown 2>/dev/null || true
 exit 0

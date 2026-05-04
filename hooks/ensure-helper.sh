@@ -20,10 +20,4 @@ INSTALL_SH="$ROOT/scripts/install-helper.sh"
 # Detach. SessionStart should not delay startup.
 disown 2>/dev/null || true
 
-# Trigger background update check (idempotent, throttled by TTL).
-if [ -x "$ROOT/hooks/check-update.sh" ]; then
-  bash "$ROOT/hooks/check-update.sh" >/dev/null 2>&1 &
-  disown 2>/dev/null || true
-fi
-
 exit 0
