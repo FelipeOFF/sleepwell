@@ -1,6 +1,6 @@
 [package]
 name = "sleepwell-helper"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "Helper binary for the Sleepwell plugin: parses LLM JSONL transcripts, computes token costs, hashes content, watches files, evaluates and calibrates outputs."
 license = "MIT"

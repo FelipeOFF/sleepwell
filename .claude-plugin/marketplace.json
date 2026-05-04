@@ -12,7 +12,7 @@
         "repo": "FelipeOFF/sleepwell"
       },
       "description": "Autonomous overnight loop for Claude Code: disciplined iteration (isolated branch, atomic commits, rollback) plus adaptive behavior (5 modes, voice matching, meta-learning, cost telemetry).",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "category": "automation",
       "keywords": [
         "autonomous",
