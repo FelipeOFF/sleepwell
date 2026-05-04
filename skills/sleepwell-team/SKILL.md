@@ -20,7 +20,7 @@ Four coordinated agents, plus an optional fifth:
 | Implementer | Drives `sleepwell-loop` until status `done` (or aborted). | `sleepwell-loop` skill |
 | Reviewer | Inspects PR diff and posts line-level review comments. | `gh api` (REST reviews endpoint) |
 | Fixer | Reads review comments, applies changes, replies in-thread. | Edit/Write + `gh api` replies |
-| CI-Watcher | Polls PR checks until green or timeout. | `gh pr checks --watch` |
+| CI-Watcher | Polls PR checks until green or timeout (handles "no checks" edge case). | `gh pr checks --json` |
 | Post-Merge (optional) | Runs configured action after merge succeeds. | Workflow dispatch / shell / sleepwell command |
 
 ## Activation
@@ -130,17 +130,19 @@ The Reviewer is dispatched as a subagent (`config.review.agent`,
 - A review rubric (severity levels: `low`, `medium`, `high`).
 
 It must output a JSON array of comments and submit them as a single review
-via:
+via `gh api ... --input -`. **Important:** when `--input` is present, `-f` /
+`-F` flags are ignored — `event` and `body` MUST live inside the JSON
+payload, not as separate flags.
 
 ```bash
 gh api \
   -X POST \
   -H "Accept: application/vnd.github+json" \
   "repos/$OWNER/$REPO/pulls/$PR/reviews" \
-  -f event="REQUEST_CHANGES" \
-  -f body="Automated review (round $ROUND)" \
   --input - <<'JSON'
 {
+  "event": "REQUEST_CHANGES",
+  "body": "Automated review (round 1)",
   "comments": [
     { "path": "src/auth/oauth.ts", "line": 42, "side": "RIGHT",
       "body": "**[high]** Missing PKCE verifier validation before token exchange." },
@@ -156,8 +158,39 @@ Reviewer submits `event=APPROVE` and the loop exits the round.
 
 ## Fixer protocol
 
-The Fixer receives the list of unresolved review comments (`gh api
-repos/$OWNER/$REPO/pulls/$PR/comments`) and:
+The Fixer receives the list of **unresolved** review comments. The REST
+endpoint `repos/$OWNER/$REPO/pulls/$PR/comments` returns *every* review
+comment on the PR (including resolved threads and prior rounds), so we use
+the GraphQL `reviewThreads { isResolved }` projection instead and filter
+client-side:
+
+```bash
+gh api graphql \
+  -F owner="$OWNER" -F repo="$REPO" -F pr="$PR" \
+  -f query='
+    query($owner:String!, $repo:String!, $pr:Int!) {
+      repository(owner:$owner, name:$repo) {
+        pullRequest(number:$pr) {
+          reviewThreads(first:100) {
+            nodes {
+              id
+              isResolved
+              comments(first:50) {
+                nodes { id databaseId path line body }
+              }
+            }
+          }
+        }
+      }
+    }' \
+  --jq '.data.repository.pullRequest.reviewThreads.nodes
+        | map(select(.isResolved == false))
+        | .[].comments.nodes[]
+        | {id: .databaseId, path, line, body}'
+```
+
+The Fixer also intersects the result with `team-state.review_comments_seen`
+to avoid replying twice to the same comment across rounds. Then:
 
 1. Applies edits to the worktree.
 2. Commits as `fix(review): address round N comments` (one commit per round).
@@ -177,28 +210,55 @@ does not reply (the next reviewer round will re-evaluate).
 
 ## CI-Watcher protocol
 
+`gh pr checks` does **not** accept `--required`. Valid flags are
+`--watch`, `--interval`, `--fail-fast`, `--json`, `--required` is **not**
+one of them. The blocking, simple-mode form is:
+
 ```bash
-gh pr checks "$PR" --watch --interval "$POLL" --required \
+gh pr checks "$PR" --watch --interval "$POLL" \
+  ${CI_FAIL_FAST:+--fail-fast} \
   || ci_failed=1
 ```
 
-Falls back to a manual loop when `--watch` is unavailable:
+This is acceptable as a fallback. The recommended form is a manual poll
+loop driven by `gh pr checks --json`, which lets us implement timeouts,
+the "no checks configured" edge case, and per-check filtering against
+`config.ci.required_checks`:
 
 ```bash
 end=$(( $(date +%s) + 60 * MAX_WAIT ))
+empty_polls=0
 while [ "$(date +%s)" -lt "$end" ]; do
-  status=$(gh pr view "$PR" --json statusCheckRollup -q \
-    '[.statusCheckRollup[].conclusion] | unique | join(",")')
-  case "$status" in
-    *FAILURE*|*CANCELLED*|*TIMED_OUT*) ci_failed=1; break ;;
-    *SUCCESS*) [[ "$status" != *PENDING* ]] && break ;;
+  rollup="$(gh pr checks "$PR" --json name,state,bucket 2>/dev/null || echo '[]')"
+  count="$(echo "$rollup" | jq 'length')"
+
+  # Edge case: workflows may not have started yet, or the PR has no
+  # required CI configured at all. Wait a bit before declaring "no CI".
+  if [ "$count" = "0" ]; then
+    empty_polls=$((empty_polls + 1))
+    if [ "$empty_polls" -ge 3 ]; then
+      log "no checks configured after 3 empty polls — proceeding (allow_no_checks)"
+      break
+    fi
+    sleep 30
+    continue
+  fi
+  empty_polls=0
+
+  # bucket is one of: pass | fail | pending | skipping | cancel
+  buckets="$(echo "$rollup" | jq -r '[.[].bucket] | unique | join(",")')"
+  case "$buckets" in
+    *fail*|*cancel*) ci_failed=1; break ;;
+    *pending*)       sleep "$POLL" ;;
+    *)               break ;;  # all pass / skipping
   esac
-  sleep "$POLL"
 done
 ```
 
-`required_checks` from config can pin specific check names; otherwise the
-detected branch protection rules are used.
+`required_checks` from config can pin specific check names (filter the
+`rollup` jq query by `.name`); otherwise the detected branch protection
+rules are used. Set `CI_FAIL_FAST=1` (mirrors `ci.fail_fast`) when using
+the `--watch` fallback.
 
 ## Merge protocol
 
