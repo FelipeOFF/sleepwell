@@ -161,6 +161,66 @@ jobs:
             (cd bin/sleepwell-helper && cargo update -p sleepwell-helper --precise "$NEW" 2>/dev/null || cargo generate-lockfile)
           fi
 
+      - name: Generate changelog section
+        if: ${{ inputs.dry_run == false }}
+        id: changelog
+        env:
+          NEW: ${{ steps.compute.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          # Determine "from" reference: previous v* plugin tag if any,
+          # otherwise fall back to the previous bin-v* tag so the very
+          # first run after bootstrap still produces a meaningful range.
+          from=$(git tag --list 'v*' --sort=-v:refname \
+                 | grep -vE '^v[0-9]+\.[0-9]+\.[0-9]+-' | head -1 || true)
+          if [ -z "$from" ]; then
+            from=$(git tag --list 'bin-v*' --sort=-v:refname | sed -n '2p' || true)
+          fi
+
+          chmod +x scripts/generate-changelog.sh
+          section=$(scripts/generate-changelog.sh "$NEW" "$from" HEAD)
+
+          # Save the section as both a step output and a file for the
+          # release step. Use the heredoc form to handle multiline.
+          {
+            echo 'body<<CHANGELOG_EOF'
+            printf '%s\n' "$section"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          mkdir -p .ci-tmp
+          printf '%s\n' "$section" > .ci-tmp/release-body.md
+
+          # Prepend new section to CHANGELOG.md (idempotent — replace any
+          # pre-existing v${NEW} section if rerun manually).
+          touch CHANGELOG.md
+          python3 - "$NEW" .ci-tmp/release-body.md CHANGELOG.md <<'PY'
+          import re, sys, pathlib
+          new_ver, body_path, changelog_path = sys.argv[1], sys.argv[2], sys.argv[3]
+          body = pathlib.Path(body_path).read_text()
+          changelog = pathlib.Path(changelog_path)
+          src = changelog.read_text() if changelog.exists() else ""
+
+          # Remove any existing block for this exact version.
+          pattern = re.compile(
+              rf'(?ms)^## v{re.escape(new_ver)}\s+—.*?(?=^## v|\Z)'
+          )
+          src = pattern.sub("", src)
+
+          if src.lstrip().startswith("# Changelog"):
+              # Insert after header block.
+              parts = re.split(r'(?m)(?=^## v)', src, maxsplit=1)
+              header = parts[0].rstrip() + "\n\n"
+              tail = parts[1] if len(parts) > 1 else ""
+              out = header + body.rstrip() + "\n\n" + tail
+          else:
+              header = "# Changelog\n\nAll notable changes to **sleepwell** are documented here.\n\n"
+              out = header + body.rstrip() + "\n\n" + src.lstrip()
+
+          changelog.write_text(out)
+          print(f"changelog updated for v{new_ver}")
+          PY
+
       - name: Commit and tag
         if: ${{ inputs.dry_run == false }}
         env:
@@ -172,7 +232,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add bin/sleepwell-helper/Cargo.toml bin/sleepwell-helper/Cargo.lock \
-                  .claude-plugin/plugin.json .claude-plugin/marketplace.json 2>/dev/null || true
+                  .claude-plugin/plugin.json .claude-plugin/marketplace.json \
+                  CHANGELOG.md 2>/dev/null || true
 
           if git diff --cached --quiet; then
             echo "::warning::no version files changed (already at $NEW?)"
@@ -183,12 +244,31 @@ jobs:
           Tag ${TAG} will fire the release workflow to build and publish artifacts."
           fi
 
-          git tag -a "$TAG" -m "sleepwell-helper v${NEW}"
+          # Two tags: v* for the plugin (changelog target), bin-v* for the
+          # helper binary (release.yml target).
+          git tag -a "v${NEW}" -m "sleepwell v${NEW}"
+          git tag -a "$TAG"   -m "sleepwell-helper v${NEW}"
 
           git push origin HEAD:main
+          git push origin "v${NEW}"
           git push origin "$TAG"
 
-      - name: Trigger release workflow for the new tag
+      - name: Create plugin GitHub Release
+        if: ${{ inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW: ${{ steps.compute.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          # Wait for the tag to be visible to the API before creating the release.
+          sleep 5
+          gh release create "v${NEW}" \
+            --title "sleepwell v${NEW}" \
+            --notes-file .ci-tmp/release-body.md \
+            -R "${{ github.repository }}"
+          echo "Created plugin release v${NEW}"
+
+      - name: Trigger helper release workflow for the new tag
         if: ${{ inputs.dry_run == false }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -199,8 +279,7 @@ jobs:
           # (anti-loop protection). Workflow_dispatch is the documented
           # exception, so we kick release.yml explicitly with the new tag
           # as ref. The release job sees github.ref=refs/tags/<tag> and
-          # uploads artifacts to the matching release.
-          # Wait briefly so the tag is fully visible to the API.
+          # uploads helper binaries to the matching bin-v* release.
           sleep 5
           gh workflow run release.yml --ref "$TAG" -R "${{ github.repository }}"
           echo "Dispatched release.yml for $TAG"
@@ -215,6 +294,13 @@ jobs:
             echo "| Bump type | \`${{ inputs.bump }}\` |"
             echo "| Current   | \`${{ steps.current.outputs.current }}\` (from ${{ steps.current.outputs.source }}) |"
             echo "| New       | \`${{ steps.compute.outputs.new_version }}\` |"
-            echo "| Tag       | \`${{ steps.compute.outputs.new_tag }}\` |"
-            echo "| Dry run   | \`${{ inputs.dry_run }}\` |"
+            echo "| Helper tag | \`${{ steps.compute.outputs.new_tag }}\` |"
+            echo "| Plugin tag | \`v${{ steps.compute.outputs.new_version }}\` |"
+            echo "| Dry run    | \`${{ inputs.dry_run }}\` |"
+            if [ -f .ci-tmp/release-body.md ]; then
+              echo ""
+              echo "### Changelog"
+              echo ""
+              cat .ci-tmp/release-body.md
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
