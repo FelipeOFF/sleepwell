@@ -14,20 +14,20 @@ SessionStart `check-update.sh` hook).
 
 - `--check` (default if no arg): print what is available without
   applying.
-- `--apply`: download the helper binary update automatically (via
-  `scripts/install-helper.sh`) and **print to the user** the
-  instruction to run `/plugin update sleepwell@sleepwell` followed by
-  `/reload-plugins`. The plugin update itself is **not** executed by
-  this command — only the helper binary download is automatic.
-- `--plugin-only`: print plugin update guidance only.
-- `--helper-only`: download/install helper binary only.
+- `--apply`: install **both** the helper binary AND the plugin cache
+  automatically. After applying, the user only has to run
+  `/reload-plugins` (or restart Claude Code) for the new commands and
+  skills to be picked up — Claude Code does not expose a tool that
+  can run `/reload-plugins` from a command body.
+- `--plugin-only`: install plugin cache only (no helper change).
+- `--helper-only`: install helper binary only (no plugin change).
 
 ## Output (example, --check)
 
 | Component | Installed | Latest | Update? |
 |---|---|---|---|
-| sleepwell plugin | v0.6.1 | v0.7.0 | yes — run /plugin update sleepwell@sleepwell |
-| sleepwell-helper | bin-v0.6.0 | bin-v0.6.1 | yes — run with --apply or --helper-only |
+| sleepwell plugin | 0.7.0 | v0.7.3 | yes — run with --apply or --plugin-only |
+| sleepwell-helper | bin-v0.6.0 | bin-v0.7.3 | yes — run with --apply or --helper-only |
 
 If no updates, prints "Up-to-date" with both versions.
 
@@ -37,28 +37,36 @@ If no updates, prints "Up-to-date" with both versions.
    SessionStart `check-update.sh` hook (refreshed every 24h).
 2. If cache is missing or stale, refreshes inline (synchronous, ~2s).
 3. With `--apply`:
-   - **Helper binary update is automatic**: invokes
-     `bash scripts/install-helper.sh --version <tag>`.
-   - **Plugin update is an instruction**: this command prints to the
-     user the message to run `/plugin update sleepwell@sleepwell` and
-     then `/reload-plugins` (or restart Claude Code) manually. Slash
-     commands cannot invoke `/plugin update` from their body.
+   - **Helper binary** → `bash $CLAUDE_PLUGIN_ROOT/scripts/install-helper.sh --version <tag>`
+   - **Plugin cache** → `bash $CLAUDE_PLUGIN_ROOT/scripts/update-plugin-cache.sh --version <tag>`
+     - Clones the new release into `~/.claude/plugins/cache/sleepwell/sleepwell/<X.Y.Z>`,
+       atomically rewrites `installed_plugins.json` to point to it, and
+       prunes older sibling cache directories (keeps `.broken.*`
+       backups intact).
+   - **Final step** is reload — the command prints the reminder to
+     run `/reload-plugins` (or restart Claude Code).
 
 ## Execution flow (for the agent)
 
 1. Read `~/.cache/sleepwell/update.json`. If missing or older than
-   `SLEEPWELL_UPDATE_TTL` seconds, run `bash hooks/check-update.sh`
-   synchronously and re-read after ~3s.
+   `SLEEPWELL_UPDATE_TTL` seconds, run
+   `bash $CLAUDE_PLUGIN_ROOT/hooks/check-update.sh` synchronously and
+   re-read after ~3s.
 2. Parse `plugin_update_available` and `helper_update_available`.
 3. Print a status table (Component | Installed | Latest | Update?).
 4. If `--apply` or `--helper-only` and helper update is available:
-   - Run `bash scripts/install-helper.sh --version "$helper_latest"`.
+   - Run `bash $CLAUDE_PLUGIN_ROOT/scripts/install-helper.sh --version "$helper_latest"`.
    - Verify with `sleepwell-helper --version`.
 5. If `--apply` or `--plugin-only` and plugin update is available:
-   - **Print to user** (do not execute): "To complete the plugin
-     update, run `/plugin update sleepwell@sleepwell` and then
-     `/reload-plugins` (or restart Claude Code)."
+   - Run `bash $CLAUDE_PLUGIN_ROOT/scripts/update-plugin-cache.sh --version "$plugin_latest"`.
+   - Print: "Plugin cache updated to <ver>. Run `/reload-plugins` (or
+     restart Claude Code) to load the new commands and skills."
 6. If no updates: print "Up-to-date".
+
+> **Note on `${CLAUDE_PLUGIN_ROOT}`:** Claude Code injects this env
+> var into command/hook execution contexts. When the agent runs the
+> scripts, prefer the env-var path — falls back to discovery via
+> `installed_plugins.json` if unset.
 
 ## Escape hatch
 
@@ -73,12 +81,22 @@ who never want the optional helper installed):
 mkdir -p ~/.config/sleepwell && touch ~/.config/sleepwell/no-helper
 ```
 
+To roll back a plugin upgrade after `--apply`, reuse the recovery
+flow:
+
+```bash
+bash $CLAUDE_PLUGIN_ROOT/scripts/update-plugin-cache.sh --version v<previous>
+```
+
 ## Notes
 
 - Cache TTL configurable via `SLEEPWELL_UPDATE_TTL` (seconds).
-- Repo can be overridden via `SLEEPWELL_UPDATE_REPO=<owner>/<name>`;
-  otherwise it is parsed from `.claude-plugin/plugin.json` `.repository`.
+- Repo can be overridden via `SLEEPWELL_UPDATE_REPO=<owner>/<name>`
+  (or `SLEEPWELL_REPO=<owner>/<name>` for the install/update scripts);
+  otherwise it is parsed from `.claude-plugin/plugin.json` `.repository`
+  or inferred from the `installed_plugins.json` key.
 - The helper download uses the same flow as the bootstrap install
   (GitHub Releases for `bin-v*` tags, platform auto-detection).
-- Plugin updates require Claude Code to reload plugins
-  (`/reload-plugins` or restart) — this command will not do it for you.
+- Plugin updates still require `/reload-plugins` (or a Claude Code
+  restart) — `/plugin` slash commands cannot be triggered from inside
+  another command body.
