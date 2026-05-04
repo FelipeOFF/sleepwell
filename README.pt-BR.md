@@ -77,6 +77,25 @@ O helper é **opcional** — toda skill tem fallback em `bash`/`jq`. A
 ausência dele só reduz precisão (telemetria de custo, calibração), não
 quebra o loop.
 
+### Atualizações
+
+O plugin verifica novas releases do SleepWell e do binário helper uma
+vez por sessão (em background, com throttling de 24h). Atualizações
+disponíveis aparecem via `/sleepwell:sleepwell-update`.
+
+```
+/sleepwell:sleepwell-update              # ver o que está disponível
+/sleepwell:sleepwell-update --apply      # baixa update do helper
+/sleepwell:sleepwell-update --helper-only
+/sleepwell:sleepwell-update --plugin-only
+```
+
+Desative o check em background com `SLEEPWELL_SKIP_UPDATE_CHECK=1`.
+Ajuste o TTL com `SLEEPWELL_UPDATE_TTL=<segundos>` (padrão 86400).
+
+> **Dica:** digite `/sl` e pressione `Tab` no Claude Code para
+> autocompletar os comandos longos namespaced.
+
 ## Início rápido
 
 ```
